@@ -2,6 +2,8 @@
 
 Projeto voltado a um site de notícias esportivas
 
+[Link para documento](https://docs.google.com/document/d/1KhAKk1E_4Iwzu5o6ZxtPdUX6Pehfy2R5bxieDUebAI8/edit?usp=sharing)
+
 Nome:
 IFScore
 
