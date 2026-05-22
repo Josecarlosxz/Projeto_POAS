@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+sqlmodel
+passlib
+bcrypt
+email-validator
+jinja2

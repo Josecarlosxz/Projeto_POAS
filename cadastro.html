@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastro</title>
+</head>
+<body>
+    <h2>Criar uma Conta</h2>
+    <form action="/cadastro" method="POST">
+        <label>Nome:</label><br>
+        <input type="text" name="nome" required><br><br>
+
+        <label>Email:</label><br>
+        <input type="email" name="email" required><br><br>
+
+        <label>Senha:</label><br>
+        <input type="password" name="senha" required><br><br>
+
+        <button type="submit">Cadastrar</button>
+    </form>
+
+    <hr>
+    <p>Já tem uma conta? <a href="/login-page">Faça login aqui</a></p>
+</body>
+</html>
