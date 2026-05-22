@@ -1,6 +1,7 @@
 from typing import Optional
 from sqlmodel import SQLModel, Field
-from datetime import datetime
+from datetime import datetime , timezone
+from pydantic import BaseModel, EmailStr
 
 # Classes
 
@@ -13,12 +14,9 @@ class Usuario(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     senha: str
 
-    criado_em: datetime = Field(default_factory=datetime.utcnow)
+    criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Schemas
-
-from pydantic import BaseModel, EmailStr
-
 
 class UsuarioCadastro(BaseModel):
     nome: str

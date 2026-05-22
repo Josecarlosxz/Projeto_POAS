@@ -1,4 +1,16 @@
+# Ambiente Virtual
+env/
+venv/
 .env/
+
+# Banco de Dados
 *.db
 *.sqlite3
+
+# Arquivos temporários do Python e VS Code
 **/__pycache__/
+*.pyc
+.vscode/
+
+# Arquivos de configuração/segredos
+.env

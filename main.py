@@ -1,31 +1,40 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Depends, status, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse , PlainTextResponse
 from fastapi.templating import Jinja2Templates  
 from sqlmodel import Session, select
+
+from contextlib import asynccontextmanager
+import traceback
+
 from database import *
 from models import *
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db()
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+@app.exception_handler(Exception)
+async def validation_exception_handler(request: Request, exc: Exception):
+    return PlainTextResponse(str(traceback.format_exc()), status_code=500)
 
 templates = Jinja2Templates(directory="templates")
-
-@app.on_event("startup")
-def on_startup():
-    create_db()
 
 # Rotas para renderizar páginas
 
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request):
-    return templates.TemplateResponse("base.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="base.html")
 
 @app.get("/cadastro-page", response_class=HTMLResponse)
 def cadastro_page(request: Request):
-    return templates.TemplateResponse("cadastro.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="cadastro.html")
 
 @app.get("/login-page", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="login.html")
 
 # Rotas de formulários
 
