@@ -1,22 +1,47 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-</head>
-<body>
-    <h2>Acessar o Sistema</h2>
-    <form action="/login" method="POST">
-        <label>Email:</label><br>
-        <input type="email" name="email" required><br><br>
+{% extends "base.html" %}
 
-        <label>Senha:</label><br>
-        <input type="password" name="senha" required><br><br>
+{% block title %}Acessar o Sistema - IFSCORE{% endblock %}
 
-        <button type="submit">Entrar</button>
+{% block content %}
+<div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-8">
+    <div class="bg-gray-900 p-6 text-center text-white border-b border-gray-800">
+        <h2 class="text-2xl font-black uppercase tracking-tight">Login</h2>
+        <p class="text-gray-400 text-xs mt-1">Insira seus dados para entrar na comunidade</p>
+    </div>
+    
+    <form action="/login" method="POST" class="p-6 space-y-4">
+        <div>
+            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">Email:</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                    <i class="fa-solid fa-envelope text-xs"></i>
+                </span>
+                <input type="email" name="email" required placeholder="seu@email.com"
+                    class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">Senha:</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                    <i class="fa-solid fa-lock text-xs"></i>
+                </span>
+                <input type="password" name="senha" required placeholder="••••••••"
+                    class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
+            </div>
+        </div>
+
+        <button type="submit" 
+            class="w-full bg-green-500 hover:bg-green-600 text-gray-950 text-sm font-bold uppercase tracking-wider py-2.5 rounded-lg transition-all shadow-md transform hover:-translate-y-0.5">
+            Entrar
+        </button>
+
+        <hr class="border-gray-100 my-4">
+
+        <p class="text-center text-xs text-gray-500">
+            Não tem uma conta? <a href="/cadastro-page" class="text-green-600 font-bold hover:underline">Cadastre-se aqui</a>
+        </p>
     </form>
-
-    <hr>
-    <p>Não tem uma conta? <a href="/cadastro-page">Cadastre-se aqui</a></p>
-</body>
-</html>
+</div>
+{% endblock %}

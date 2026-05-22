@@ -1,25 +1,58 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Cadastro</title>
-</head>
-<body>
-    <h2>Criar uma Conta</h2>
-    <form action="/cadastro" method="POST">
-        <label>Nome:</label><br>
-        <input type="text" name="nome" required><br><br>
+{% extends "base.html" %}
 
-        <label>Email:</label><br>
-        <input type="email" name="email" required><br><br>
+{% block title %}Criar Conta - IFSCORE{% endblock %}
 
-        <label>Senha:</label><br>
-        <input type="password" name="senha" required><br><br>
+{% block content %}
+<div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-8">
+    <div class="bg-gray-900 p-6 text-center text-white border-b border-gray-800">
+        <h2 class="text-2xl font-black uppercase tracking-tight">Cadastre-se</h2>
+        <p class="text-gray-400 text-xs mt-1">Cadastre-se para acompanhar tudo sobre seu esporte favorito</p>
+    </div>
+    
+    <form action="/cadastro" method="POST" class="p-6 space-y-4">
+        <div>
+            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">Nome:</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                    <i class="fa-solid fa-user text-xs"></i>
+                </span>
+                <input type="text" name="nome" required placeholder="Seu nome completo"
+                    class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
+            </div>
+        </div>
 
-        <button type="submit">Cadastrar</button>
+        <div>
+            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">Email:</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                    <i class="fa-solid fa-envelope text-xs"></i>
+                </span>
+                <input type="email" name="email" required placeholder="seu@email.com"
+                    class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold uppercase text-gray-700 mb-1">Senha:</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                    <i class="fa-solid fa-lock text-xs"></i>
+                </span>
+                <input type="password" name="senha" required placeholder="Sua senha secreta"
+                    class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
+            </div>
+        </div>
+
+        <button type="submit" 
+            class="w-full bg-green-500 hover:bg-green-600 text-gray-950 text-sm font-bold uppercase tracking-wider py-2.5 rounded-lg transition-all shadow-md transform hover:-translate-y-0.5">
+            Cadastrar
+        </button>
+
+        <hr class="border-gray-100 my-4">
+        
+        <p class="text-center text-xs text-gray-500">
+            Já tem uma conta? <a href="/login-page" class="text-green-600 font-bold hover:underline">Faça login aqui</a>
+        </p>
     </form>
-
-    <hr>
-    <p>Já tem uma conta? <a href="/login-page">Faça login aqui</a></p>
-</body>
-</html>
+</div>
+{% endblock %}
