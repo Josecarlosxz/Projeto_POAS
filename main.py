@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, status, Form, Request, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
-from fastapi.templating import Jinja2Templates  
+from fastapi.templating import Jinja2Templates 
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 from typing import Optional
 
@@ -17,6 +18,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 @app.exception_handler(Exception)
 async def validation_exception_handler(request: Request, exc: Exception):
     return PlainTextResponse(str(traceback.format_exc()), status_code=500)
@@ -25,8 +28,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 # --- SISTEMA DE VERIFICAÇÃO DE SESSÃO ---
-# Esta função verifica se o usuário tem o cookie de sessão ativo. 
-# Se tiver, ela busca o usuário no banco de dados e o valida.
+
 def obter_usuario_logado(
     session: Session = Depends(get_session), 
     usuario_email: Optional[str] = Cookie(None)
@@ -41,7 +43,6 @@ def obter_usuario_logado(
 
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request, usuario: Optional[Usuario] = Depends(obter_usuario_logado)):
-    # Se o usuário estiver logado, passamos o nome dele para a base.html atualizar a navbar
     nome_usuario = usuario.nome if usuario else None
     return templates.TemplateResponse(
         request=request, 
@@ -57,14 +58,12 @@ def cadastro_page(request: Request, usuario: Optional[Usuario] = Depends(obter_u
 
 @app.get("/login-page", response_class=HTMLResponse)
 def login_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usuario_logado)):
-    # Se o usuário já estiver logado e tentar acessar a tela de login, manda direto para a home
     if usuario:
         return RedirectResponse(url="/home-page", status_code=status.HTTP_303_SEE_OTHER)
     return templates.TemplateResponse(request=request, name="login.html")
 
 @app.get("/home-page", response_class=HTMLResponse)
 def home_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usuario_logado)):
-    # Protege a rota: se não estiver logado, joga para a tela de login
     if not usuario:
         return RedirectResponse(url="/login-page", status_code=status.HTTP_303_SEE_OTHER)
     
@@ -117,17 +116,14 @@ def logar_usuario(
             status_code=401
         )
     
-    # Criamos a resposta redirecionando o usuário para a página home estável do painel
     response = RedirectResponse(url="/home-page", status_code=status.HTTP_303_SEE_OTHER)
     
-    # Injetamos o Cookie de Sessão no navegador. httponly=True evita ataques XSS maliciosos.
     response.set_cookie(key="usuario_email", value=usuario.email, httponly=True, max_age=3600) 
     return response
 
 
 @app.get("/logout")
 def deslogar_usuario():
-    # Remove o cookie do navegador redirecionando o usuário de volta à raiz
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(key="usuario_email")
     return response

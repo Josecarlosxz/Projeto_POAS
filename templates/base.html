@@ -4,104 +4,97 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}IFSCORE - A casa dos esportes{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .bg-esporte-dark { background-color: #06AA48; } /* Verde vibrante estilo GE/OneFootball */
-        .bg-esporte-header { background-color: #111827; } /* Grafite escuro */
-    </style>
-</head>
-<body class="bg-gray-100 font-sans flex flex-col min-h-screen justify-between">
+    <link rel="stylesheet" href="/static/css/style.css">
 
-    <div class="w-full bg-esporte-dark text-white text-xs font-bold px-4 py-1.5 flex justify-between items-center shadow-inner">
-        <div class="flex space-x-4">
-            <span class="hover:underline cursor-pointer">FUTEBOL</span>
-            <span class="hover:underline cursor-pointer text-green-100">BASQUETE</span>
-            <span class="hover:underline cursor-pointer text-green-100">FÓRMULA 1</span>
+</head>
+<body>
+
+    <div class="top-bar">
+        <div class="top-bar-links">
+            <span>FUTEBOL</span>
+            <span>BASQUETE</span>
+            <span>FÓRMULA 1</span>
         </div>
-        <div class="hidden sm:block text-green-100">
-            <i class="fa-solid fa-circle text-red-500 text-[8px] mr-1 animate-pulse"></i> AO VIVO
+        <div class="live-badge">
+            <i class="fa-solid fa-circle live-dot"></i> AO VIVO
         </div>
     </div>
 
-    <header class="bg-esporte-header text-white sticky top-0 z-50 shadow-md">
-        <div class="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
+    <header class="main-header">
+        <div class="header-container">
             
-            <div class="flex items-center space-x-3">
-                <a href="{% if nome %}/home-page{% else %}/{% endif %}" class="flex items-center space-x-2 text-2xl font-black tracking-tighter text-white">
-                    <span class="bg-green-500 px-2 py-0.5 rounded text-gray-900">IFSCORE</span>
+            <div class="logo">
+                <a href="{% if nome %}/home-page{% else %}/{% endif %}">
+                    <img src="{{ url_for('static', path='images/IFScore.png') }}" alt="Logo IFScore" class="logo-img">
                 </a>
             </div>
 
-            <nav class="hidden md:flex space-x-6 text-sm font-semibold tracking-wide">
-                <a href="{% if nome %}/home-page{% else %}/{% endif %}" class="hover:text-green-400 transition-colors py-2 border-b-2 border-transparent hover:border-green-400">Início</a>
-                <a href="#" class="hover:text-green-400 transition-colors py-2 border-b-2 border-transparent hover:border-green-400">Campeonatos</a>
-                <a href="#" class="hover:text-green-400 transition-colors py-2 border-b-2 border-transparent hover:border-green-400">Transferências</a>
-                <a href="#" class="hover:text-green-400 transition-colors py-2 border-b-2 border-transparent hover:border-green-400">Vídeos</a>
+            <nav class="nav-links">
+                <a href="{% if nome %}/home-page{% else %}/{% endif %}">Início</a>
+                <a href="#">Campeonatos</a>
+                <a href="#">Transferências</a>
+                <a href="#">Vídeos</a>
             </nav>
 
-            <div class="flex items-center space-x-4">
+            <div class="header-actions">
                 {% if nome %}
-                    <div class="relative">
-                        <button id="btn-usuario" class="flex items-center space-x-2 text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-full border border-gray-700 transition-colors focus:outline-none select-none">
-                            <i class="fa-solid fa-user-circle text-green-400 text-lg"></i>
-                            <span class="font-medium text-gray-200">Olá, <strong class="text-white">{{ nome }}</strong></span>
-                            <i class="fa-solid fa-chevron-down text-xs text-gray-400 ml-1"></i>
+                    <div class="user-menu-container">
+                        <button id="btn-usuario" class="btn-user">
+                            <i class="fa-solid fa-user-circle"></i>
+                            <span>Olá, <strong>{{ nome }}</strong></span>
+                            <i class="fa-solid fa-chevron-down" style="font-size: 10px; margin-left: 4px;"></i>
                         </button>
 
-                        <div id="dropdown-usuario" class="hidden absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-50 animate-fade-in">
-                            <div class="px-4 py-2 border-b border-gray-100">
-                                <p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Sua Conta</p>
-                                <p class="text-sm font-semibold text-gray-800 truncate">{{ nome }}</p>
+                        <div id="dropdown-usuario" class="dropdown-menu hidden">
+                            <div class="dropdown-header">
+                                <p>Sua Conta</p>
+                                <p>{{ nome }}</p>
                             </div>
-                            <a href="/logout" class="flex items-center space-x-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium transition-colors">
-                                <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                            <a href="/logout" class="dropdown-item-logout">
+                                <i class="fa-solid fa-right-from-bracket"></i>
                                 <span>Sair / Logout</span>
                             </a>
                         </div>
                     </div>
                 {% else %}
-                    <a href="/login-page" class="text-sm font-medium hover:text-green-400 transition-colors">Entrar</a>
-                    <a href="/cadastro-page" class="bg-green-500 hover:bg-green-600 text-gray-950 text-sm font-bold px-4 py-2 rounded transition-all transform hover:scale-105 shadow">
-                        Cadastre-se
-                    </a>
+                    <a href="/login-page" class="btn-entrar">Entrar</a>
+                    <a href="/cadastro-page" class="btn-cadastrar">Cadastre-se</a>
                 {% endif %}
             </div>
 
         </div>
     </header>
 
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-8">
+    <main class="main-content">
         {% block content %}
         {% endblock %}
     </main>
 
-    <footer class="bg-gray-900 text-gray-400 text-sm mt-auto border-t border-gray-800">
-        <div class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-                <span class="text-white font-black text-lg bg-green-500 px-2 py-0.5 rounded text-gray-900">IFScore</span>
-                <p class="mt-3 text-xs leading-relaxed text-gray-400">
-                    O seu portal definitivo sobre todas as modalidades esportivas. Cobertura completa e bastidores do mundo da bola.
-                </p>
+    <footer class="main-footer">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <span class="brand-logo">IFScore</span>
+                <p>O seu portal definitivo sobre todas as modalidades esportivas. Cobertura completa e bastidores do mundo da bola.</p>
             </div>
-            <div>
-                <h4 class="text-white font-bold mb-3 uppercase tracking-wider text-xs">Links Úteis</h4>
-                <ul class="space-y-1.5 text-xs">
-                    <li><a href="{% if nome %}/home-page{% else %}/{% endif %}" class="hover:text-white transition-colors">Página Inicial</a></li>
-                    <li><a href="/login-page" class="hover:text-white transition-colors">Acessar Conta</a></li>
-                    <li><a href="/cadastro-page" class="hover:text-white transition-colors">Cadastre-se</a></li>
+            <div class="footer-links">
+                <h4>Links Úteis</h4>
+                <ul>
+                    <li><a href="{% if nome %}/home-page{% else %}/{% endif %}">Página Inicial</a></li>
+                    <li><a href="/login-page">Acessar Conta</a></li>
+                    <li><a href="/cadastro-page">Cadastre-se</a></li>
                 </ul>
             </div>
-            <div>
-                <h4 class="text-white font-bold mb-3 uppercase tracking-wider text-xs">Redes Sociais</h4>
-                <div class="flex space-x-4 text-lg text-gray-300">
-                    <a href="#" class="hover:text-green-400 transition-colors"><i class="fa-brands fa-instagram"></i></a>
-                    <a href="#" class="hover:text-green-400 transition-colors"><i class="fa-brands fa-x-twitter"></i></a>
-                    <a href="#" class="hover:text-green-400 transition-colors"><i class="fa-brands fa-youtube"></i></a>
+            <div class="footer-social">
+                <h4>Redes Sociais</h4>
+                <div class="social-icons">
+                    <a href="#"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="#"><i class="fa-brands fa-youtube"></i></a>
                 </div>
             </div>
         </div>
-        <div class="bg-gray-950 py-4 text-center text-xs text-gray-600 border-t border-gray-900">
+        <div class="footer-bottom">
             &copy; 2026 IFScore Esportes. Todos os direitos reservados.
         </div>
     </footer>

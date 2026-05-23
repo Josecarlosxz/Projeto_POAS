@@ -3,35 +3,35 @@
 {% block title %}Página Inicial - IFScore{% endblock %}
 
 {% block content %}
-<div class="bg-white border border-gray-200 rounded-2xl p-6 md:p-10 shadow-sm">
+<div class="dashboard-card">
     
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-100 pb-6 mb-6">
+    <div class="dashboard-header">
         <div>
-            <span class="text-xs font-black uppercase tracking-wider text-green-600 bg-green-50 px-2 py-1 rounded">Área do Usuário</span>
-            <h1 class="text-2xl md:text-3xl font-black text-gray-900 mt-2">
-                Bem-vindo, <span class="text-green-600">{{ nome }}</span>!
+            <span class="user-badge">Área do Usuário</span>
+            <h1 class="dashboard-title">
+                Bem-vindo, <span>{{ nome }}</span>!
             </h1>
-            <p class="text-gray-500 text-sm mt-1">Você fez login com sucesso e agora está na sua área logada.</p>
+            <p class="dashboard-subtitle">Você fez login com sucesso e agora está na sua área logada.</p>
         </div>
-        <div class="mt-4 md:mt-0">
-            <a href="/logout" class="inline-flex items-center space-x-2 text-xs font-bold uppercase bg-gray-950 text-white px-4 py-2.5 rounded-lg hover:bg-red-600 transition-colors shadow">
+        <div>
+            <a href="/logout" class="btn-logout">
                 <i class="fa-solid fa-right-from-bracket"></i> <span>Sair</span>
             </a>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div class="border border-gray-100 bg-gray-50 rounded-xl p-5 border-l-4 border-l-green-500">
-            <h3 class="font-bold text-gray-900 text-base mb-1">Meu Perfil</h3>
-            <p class="text-xs text-gray-500">Altere seus dados, preferências esportivas e senha do sistema.</p>
+    <div class="grid-cards">
+        <div class="feature-card">
+            <h3>Meu Perfil</h3>
+            <p>Altere seus dados, preferências esportivas e senha do sistema.</p>
         </div>
-        <div class="border border-gray-100 bg-gray-50 rounded-xl p-5 border-l-4 border-l-green-500">
-            <h3 class="font-bold text-gray-900 text-base mb-1">Notificações Favoritas</h3>
-            <p class="text-xs text-gray-500">Ative alertas de gols e notícias urgentes sobre os seus campeonatos.</p>
+        <div class="feature-card">
+            <h3>Notificações Favoritas</h3>
+            <p>Ative alertas de gols e notícias urgentes sobre os seus campeonatos.</p>
         </div>
-        <div class="border border-gray-100 bg-gray-50 rounded-xl p-5 border-l-4 border-l-green-500">
-            <h3 class="font-bold text-gray-900 text-base mb-1">Histórico de Atividade</h3>
-            <p class="text-xs text-gray-500">Acompanhe seus comentários recentes e fóruns salvos.</p>
+        <div class="feature-card">
+            <h3>Histórico de Atividade</h3>
+            <p>Acompanhe seus comentários recentes e fóruns salvos.</p>
         </div>
     </div>
 
