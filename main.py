@@ -18,14 +18,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+templates = Jinja2Templates(directory="templates")
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.exception_handler(Exception)
 async def validation_exception_handler(request: Request, exc: Exception):
     return PlainTextResponse(str(traceback.format_exc()), status_code=500)
-
-templates = Jinja2Templates(directory="templates")
-
 
 # --- SISTEMA DE VERIFICAÇÃO DE SESSÃO ---
 
