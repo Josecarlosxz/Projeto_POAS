@@ -48,9 +48,14 @@
 
                         <div id="dropdown-usuario" class="dropdown-menu hidden">
                             <div class="dropdown-header">
-                                <p>Sua Conta</p>
+                                <p>Olá</p>
                                 <p>{{ nome }}</p>
                             </div>
+                            <div id="informations-usuario" class="dropdown-item-usuario">
+                                <i class="fa-solid fa-user-gear"></i>
+                                <a href="{% if nome %}/usuario-page{% else %}/{% endif %}">Minha conta</a>
+                            </div>
+
                             <a href="/logout" class="dropdown-item-logout">
                                 <i class="fa-solid fa-right-from-bracket"></i>
                                 <span>Sair / Logout</span>

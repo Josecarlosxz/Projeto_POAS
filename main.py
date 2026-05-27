@@ -73,6 +73,16 @@ def home_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usuar
         context={"nome": usuario.nome}
     )
 
+@app.get("/usuario-page" , response_class=HTMLResponse)
+def usuario_page(request: Request , usuario: Optional[Usuario] = Depends(obter_usuario_logado)):
+    if not usuario:
+        return RedirectResponse(url="/login-page", status_code=status.HTTP_303_SEE_OTHER)
+
+    return templates.TemplateResponse(
+        request=request , 
+        name="area_usuario.html" ,
+        context={"nome": usuario.nome}
+    )
 
 # --- ROTAS DE FORMULÁRIOS ---
 
