@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlmodel import SQLModel, Field
-from datetime import datetime , timezone
+from datetime import datetime, timezone
 from pydantic import BaseModel, EmailStr
 
 # Classes
@@ -12,7 +12,8 @@ class Usuario(SQLModel, table=True):
 
     nome: str
     email: str = Field(unique=True, index=True)
-    senha: str
+    # Armazena hash (não senha em texto puro)
+    senha_hash: str
 
     criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -27,3 +28,9 @@ class UsuarioCadastro(BaseModel):
 class UsuarioLogin(BaseModel):
     email: EmailStr
     senha: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
