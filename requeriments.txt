@@ -2,8 +2,10 @@ fastapi
 uvicorn
 sqlmodel
 passlib
-bcrypt
 email-validator
 jinja2
 python-multipart
 cryptography
+bcrypt
+passlib[bcrypt]
+requests

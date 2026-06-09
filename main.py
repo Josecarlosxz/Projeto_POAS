@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Depends, status, Form, Request, Cookie, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
+from fastapi import FastAPI, Depends, status, Form, Request, Cookie, HTTPException , WebSocket
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse , JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
@@ -8,19 +8,16 @@ from typing import Optional
 from contextlib import asynccontextmanager
 import traceback
 
-from passlib.context import CryptContext
+import bcrypt
 from jose import jwt, JWTError
 from datetime import datetime, timezone, timedelta
-
 
 from fastapi.security import OAuth2PasswordBearer
 
 from database import *
 from models import *
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# JWT config
+# --- JWT config ---
 SECRET_KEY = "change_me_super_secret"  # troque em produção
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -61,9 +58,9 @@ def create_access_token(*, subject: str) -> str:
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
-    return pwd_context.verify(plain_password, password_hash)
-
-# --- Dependência para rotas protegidas (Bearer) ---
+    password_bytes = plain_password.encode('utf-8')
+    hash_bytes = password_hash.encode('utf-8')
+    return bcrypt.checkpw(password_bytes, hash_bytes)
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -117,6 +114,34 @@ def home_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usuar
         context={"nome": usuario.nome},
     )
 
+@app.get("/basquete-page", response_class=HTMLResponse)
+def basquete_page(
+    request: Request,
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
+
+    return templates.TemplateResponse(
+        request=request,
+        name="basquete.html",
+        context={
+            "nome": usuario.nome if usuario else None
+        }
+    )
+
+@app.get("/ufc-page", response_class=HTMLResponse)
+def ufc_page(
+    request: Request,
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
+
+    return templates.TemplateResponse(
+        request=request,
+        name="ufc.html",
+        context={
+            "nome": usuario.nome if usuario else None
+        }
+    )
+
 @app.get("/protected/me")
 def protected_me(current_user: Usuario = Depends(get_current_user)):
     return {"id": current_user.id, "nome": current_user.nome, "email": current_user.email} 
@@ -151,7 +176,8 @@ def cadastrar_usuario(
             status_code=400,
         )
 
-    senha_hash = pwd_context.hash(senha)
+    senha_bytes = senha.encode('utf-8')
+    senha_hash = bcrypt.hashpw(senha_bytes, bcrypt.gensalt()).decode('utf-8')
     novo_usuario = Usuario(nome=nome, email=email, senha_hash=senha_hash)
     session.add(novo_usuario)
     session.commit()
@@ -198,8 +224,9 @@ def api_cadastrar_usuario(
     usuario_existente = session.exec(statement).first()
     if usuario_existente:
         return HTMLResponse(content="<h3>Erro: Este email já está cadastrado!</h3>", status_code=400)
-
-    senha_hash = pwd_context.hash(senha)
+    
+    senha_bytes = senha.encode('utf-8')
+    senha_hash = bcrypt.hashpw(senha_bytes, bcrypt.gensalt()).decode('utf-8')
     novo_usuario = Usuario(nome=nome, email=email, senha_hash=senha_hash)
     session.add(novo_usuario)
     session.commit()
@@ -224,3 +251,125 @@ def api_login(
 def api_me(current_user: Usuario = Depends(get_current_user)):
     return {"id": current_user.id, "nome": current_user.nome, "email": current_user.email, "criado_em": current_user.criado_em}
 
+# --- API NOTÍCIAS ---
+import requests
+API_KEY = "d5c981928b0548918cd5f360ffb63759"
+
+noticias_cache = []
+ultimo_update = None
+
+@app.get("/api/noticias")
+def obter_noticias():
+
+    url = (
+        "https://newsapi.org/v2/everything?"
+        "q=futebol OR soccer OR football"
+        "&language=pt"
+        "&sortBy=publishedAt"
+        f"&apiKey={API_KEY}"
+    )
+
+    resposta = requests.get(url)
+
+    if resposta.status_code != 200:
+        return JSONResponse(
+            status_code=500,
+            content={"erro": "Falha ao buscar notícias"}
+        )
+
+    dados = resposta.json()
+
+    noticias = []
+
+    for artigo in dados["articles"][:20]:
+
+        if artigo["title"] is None or artigo["urlToImage"] is None:
+            continue
+
+        noticias.append({
+            "titulo": artigo["title"],
+            "descricao": artigo["description"],
+            "imagem": artigo["urlToImage"],
+            "link": artigo["url"],
+            "fonte": artigo["source"]["name"],
+            "data": artigo["publishedAt"]
+        })
+
+    return noticias
+
+@app.get("/api/basquete")
+def basquete():
+
+    url = (
+        "https://newsapi.org/v2/everything?"
+        'q=("NBA" OR "basketball")'
+        "&language=pt"
+        "&sortBy=publishedAt"
+        f"&apiKey={API_KEY}"
+    )
+
+    resposta = requests.get(url)
+
+    artigos = resposta.json()["articles"]
+
+    noticias = []
+
+    palavras = [
+        "nba",
+        "basketball",
+        "lebron",
+        "stephen curry",
+        "warriors",
+        "lakers",
+        "celtics",
+        "bucks",
+        "knicks"
+    ]
+
+    for artigo in artigos:
+
+        if artigo["title"] is None or artigo["urlToImage"] is None:
+            continue
+
+        texto = (
+            (artigo["title"] or "") +
+            " " +
+            (artigo["description"] or "")
+        ).lower()
+
+        if any(palavra in texto for palavra in palavras):
+            noticias.append(artigo)
+
+    return noticias
+
+@app.get("/api/ufc")
+def ufc():
+
+    url = (
+        "https://newsapi.org/v2/everything?"
+        'q=("UFC" OR "MMA")'
+        "&language=pt"
+        "&sortBy=publishedAt"
+        f"&apiKey={API_KEY}"
+    )
+
+    resposta = requests.get(url)
+
+    artigos = resposta.json()["articles"]
+
+    noticias = []
+
+    for artigo in artigos:
+
+        if artigo["title"] is None or artigo["urlToImage"] is None:
+            continue
+
+        titulo = artigo["title"].lower()
+
+        if (
+            "ufc" in titulo
+            or "mma" in titulo
+        ):
+            noticias.append(artigo)
+
+    return noticias
