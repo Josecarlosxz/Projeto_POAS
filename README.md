@@ -34,5 +34,10 @@ Etapa 2(02/04 - 15/04):
 Etapa 3(16/04 - 30/04):
 - Modelagem do Banco de Dados do sistema;
 
-Etapa 4(01/05 - ):
+Etapa 4(01/05 - 29/05):
 - Criação de rotas;
+- Desenvolvimento api cadastro/login;
+
+Etapa 5(01 - 12/05):
+- Inicio do desenvolvimento de api de noticias (Futebol , Basquete , UFC);
+- Modelo provisório de simulador de resultados;
