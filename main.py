@@ -80,6 +80,9 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário não encontrado")
     return usuario
 
+def protected_me(current_user: Usuario = Depends(get_current_user)):
+    return {"id": current_user.id, "nome": current_user.nome, "email": current_user.email} 
+
 # --- ROTAS PARA RENDERIZAR PÁGINAS ---
 
 @app.get("/", response_class=HTMLResponse)
@@ -142,10 +145,33 @@ def ufc_page(
         }
     )
 
-@app.get("/protected/me")
-def protected_me(current_user: Usuario = Depends(get_current_user)):
-    return {"id": current_user.id, "nome": current_user.nome, "email": current_user.email} 
+@app.get("/futebol-americano-page", response_class=HTMLResponse)
+def futebol_americano_page(
+    request: Request,
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
 
+    return templates.TemplateResponse(
+        request=request,
+        name="futebol_americano.html",
+        context={
+            "nome": usuario.nome if usuario else None
+        }
+    )
+
+@app.get("/formula1-page", response_class=HTMLResponse)
+def formula1_page(
+    request: Request,
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
+
+    return templates.TemplateResponse(
+        request=request,
+        name="formula1.html",
+        context={
+            "nome": usuario.nome if usuario else None
+        }
+    )
 
 @app.get("/usuario-page", response_class=HTMLResponse)
 def usuario_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usuario_logado)):
@@ -252,6 +278,7 @@ def api_me(current_user: Usuario = Depends(get_current_user)):
     return {"id": current_user.id, "nome": current_user.nome, "email": current_user.email, "criado_em": current_user.criado_em}
 
 # --- API NOTÍCIAS ---
+
 import requests
 API_KEY = "d5c981928b0548918cd5f360ffb63759"
 
@@ -371,5 +398,118 @@ def ufc():
             or "mma" in titulo
         ):
             noticias.append(artigo)
+
+    return noticias
+
+@app.get("/api/futebol-americano")
+def futebol_americano():
+
+    url = (
+        "https://newsapi.org/v2/everything?"
+        'q=("NFL" OR "American Football")'
+        "&language=pt"
+        "&sortBy=publishedAt"
+        f"&apiKey={API_KEY}"
+    )
+
+    resposta = requests.get(url)
+
+    artigos = resposta.json()["articles"]
+
+    noticias = []
+
+    palavras = [
+        "nfl",
+        "american football",
+        "chiefs",
+        "eagles",
+        "cowboys",
+        "packers",
+        "49ers",
+        "ravens",
+        "patrick mahomes",
+        "josh allen"
+    ]
+
+    for artigo in artigos:
+        
+        if artigo["title"] is None or artigo["urlToImage"] is None:
+            continue
+
+        texto = (
+            (artigo["title"] or "") +
+            " " +
+            (artigo["description"] or "")
+        ).lower()
+
+        if any(palavra in texto for palavra in palavras):
+
+            noticias.append({
+                "title": artigo["title"],
+                "description": artigo["description"],
+                "url": artigo["url"],
+                "urlToImage": artigo["urlToImage"],
+                "source": artigo["source"]
+            })
+
+    return noticias
+
+@app.get("/api/formula1")
+def formula1():
+
+    url = (
+        "https://newsapi.org/v2/everything?"
+        'q=("Formula 1" OR "F1")'
+        '&language=pt'
+        "&sortBy=publishedAt"
+        f"&apiKey={API_KEY}"
+    )
+
+    resposta = requests.get(url)
+
+    artigos = resposta.json()["articles"]
+
+    noticias = []
+
+    palavras = [
+        "formula 1",
+        "f1",
+        "verstappen",
+        "hamilton",
+        "ferrari",
+        "red bull",
+        "mercedes",
+        "mclaren",
+        "leclerc",
+        "norris",
+        "russell",
+        "aston martin"
+    ]
+
+    for artigo in artigos:
+
+        texto = (
+            (artigo["title"] or "") +
+            " " +
+            (artigo["description"] or "")
+        ).lower()
+
+        if any(palavra in texto for palavra in palavras):
+
+            if not all([
+                artigo.get("title"),
+                artigo.get("description"),
+                artigo.get("url"),
+                artigo.get("urlToImage")
+            ]):
+                continue
+
+            noticias.append({
+                "title": artigo["title"],
+                "description": artigo["description"],
+                "url": artigo["url"],
+                "urlToImage": artigo["urlToImage"],
+                "source": artigo["source"]
+            })
 
     return noticias
