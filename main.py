@@ -18,7 +18,7 @@ from database import *
 from models import *
 
 # --- JWT config ---
-SECRET_KEY = "change_me_super_secret"  # troque em produção
+SECRET_KEY = "change_me_super_secret"  
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
