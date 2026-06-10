@@ -38,6 +38,6 @@ Etapa 4(01/05 - 29/05):
 - Criação de rotas;
 - Desenvolvimento api cadastro/login;
 
-Etapa 5(01 - 12/05):
+Etapa 5(01/06 - 12/06):
 - Inicio do desenvolvimento de api de noticias (Futebol , Basquete , UFC);
 - Modelo provisório de simulador de resultados;
