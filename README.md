@@ -41,3 +41,11 @@ Etapa 4(01/05 - 29/05):
 Etapa 5(01/06 - 12/06):
 - Inicio do desenvolvimento de api de noticias (Futebol , Basquete , UFC);
 - Modelo provisório de simulador de resultados;
+
+Etapa 6(13/06 - 10/07):
+- Finalização da api de noticias;
+- Continuação do desenvolvimento do simulador de resultados;
+- Inicio da implementação da busca de noticias;
+- Inicio do desenvolvimento da api de campeonatos.
+
+Etapa 7(11/07 - 
