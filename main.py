@@ -108,13 +108,13 @@ def login_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usua
 
 @app.get("/home-page", response_class=HTMLResponse)
 def home_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usuario_logado)):
-    if not usuario:
-        return RedirectResponse(url="/login-page", status_code=status.HTTP_303_SEE_OTHER)
 
     return templates.TemplateResponse(
         request=request,
         name="home.html",
-        context={"nome": usuario.nome},
+        context={
+            "nome": usuario.nome if usuario else None
+        }
     )
 
 @app.get("/basquete-page", response_class=HTMLResponse)
