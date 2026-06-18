@@ -106,6 +106,20 @@ def login_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usua
         return RedirectResponse(url="/home-page", status_code=status.HTTP_303_SEE_OTHER)
     return templates.TemplateResponse(request=request, name="login.html")
 
+@app.get("/videos-page", response_class=HTMLResponse)
+def videos_page(
+    request: Request,
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
+
+    return templates.TemplateResponse(
+        request=request,
+        name="videos.html",
+        context={
+            "nome": usuario.nome if usuario else None
+        }
+    )
+
 @app.get("/home-page", response_class=HTMLResponse)
 def home_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usuario_logado)):
 
@@ -290,7 +304,7 @@ def obter_noticias():
 
     url = (
         "https://newsapi.org/v2/everything?"
-        "q=futebol OR soccer OR football"
+        "q=soccer OR football"
         "&language=pt"
         "&sortBy=publishedAt"
         f"&apiKey={API_KEY}"
@@ -513,3 +527,44 @@ def formula1():
             })
 
     return noticias
+
+import requests
+
+YOUTUBE_API_KEY = "AIzaSyBNSESwTKK4l2qNDGjYtZSB35aGD_DkOEU"
+
+@app.get("/api/videos/{esporte}")
+def videos(esporte: str):
+
+    pesquisas = {
+        "futebol": "futebol melhores momentos",
+        "basquete": "NBA highlights",
+        "ufc": "UFC highlights",
+        "nhl": "NHL highlights",
+        "formula1": "Formula 1 highlights"
+    }
+
+    busca = pesquisas.get(esporte, esporte)
+
+    url = (
+        "https://www.googleapis.com/youtube/v3/search"
+        "?part=snippet"
+        "&type=video"
+        "&maxResults=12"
+        f"&q={busca}"
+        f"&key={YOUTUBE_API_KEY}"
+    )
+
+    resposta = requests.get(url)
+
+    videos = []
+
+    for video in resposta.json()["items"]:
+
+        videos.append({
+            "titulo": video["snippet"]["title"],
+            "canal": video["snippet"]["channelTitle"],
+            "thumbnail": video["snippet"]["thumbnails"]["high"]["url"],
+            "id": video["id"]["videoId"]
+        })
+
+    return videos
