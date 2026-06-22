@@ -1,39 +1,145 @@
+```html
 {% extends "base.html" %}
 
 {% block title %}Página Inicial - Área de usuário{% endblock %}
 
 {% block content %}
 <div class="dashboard-card">
-    
+
     <div class="dashboard-header">
         <div>
             <span class="user-badge">Área do Usuário</span>
             <h1 class="dashboard-title">
                 Bem-vindo, <span>{{ nome }}</span>!
             </h1>
-            <p class="dashboard-subtitle">Você fez login com sucesso e agora está na sua área logada.</p>
+            <p class="dashboard-subtitle">
+                Você fez login com sucesso e agora está na sua área logada.
+            </p>
         </div>
+
         <div>
             <a href="/logout" class="btn-logout">
-                <i class="fa-solid fa-right-from-bracket"></i> <span>Sair</span>
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Sair</span>
             </a>
         </div>
     </div>
 
     <div class="grid-cards">
+
         <div class="feature-card">
             <h3>Meu Perfil</h3>
-            <p>Altere seus dados, preferências esportivas e senha do sistema.</p>
+
+            <p>
+                Altere seus dados, preferências esportivas e senha do sistema.
+            </p>
         </div>
+
         <div class="feature-card">
-            <h3>Notificações Favoritas</h3>
-            <p>Ative alertas de gols e notícias urgentes sobre os seus campeonatos.</p>
+
+            <h3>⭐ Times Favoritos</h3>
+
+            <div id="time-favorito">
+
+                <p>
+                    Carregando...
+                </p>
+
+            </div>
+
         </div>
+
         <div class="feature-card">
+
             <h3>Histórico de Atividade</h3>
-            <p>Acompanhe seus comentários recentes e fóruns salvos.</p>
+
+            <p>
+                Acompanhe seus comentários recentes e fóruns salvos.
+            </p>
+
         </div>
+
     </div>
 
 </div>
+
+<script>
+
+function carregarTimeFavorito(){
+
+    let favoritos =
+        JSON.parse(
+            localStorage.getItem("timesFavoritos")
+        ) || [];
+
+    let html = "";
+
+    if(favoritos.length === 0){
+
+        html = `
+            <p>
+                Nenhum time favoritado.
+            </p>
+        `;
+
+    }else{
+
+        favoritos.forEach(time => {
+
+            html += `
+
+                <div class="card-favorito">
+
+                    <span>
+                        ${time}
+                    </span>
+
+                    <button
+                        onclick="removerFavorito('${time}')">
+
+                        Remover
+
+                    </button>
+
+                </div>
+
+            `;
+
+        });
+
+    }
+
+    document.getElementById(
+        "time-favorito"
+    ).innerHTML = html;
+
+}
+
+
+function removerFavorito(time){
+
+    let favoritos =
+        JSON.parse(
+            localStorage.getItem("timesFavoritos")
+        ) || [];
+
+    favoritos = favoritos.filter(
+        favorito => favorito !== time
+    );
+
+    localStorage.setItem(
+        "timesFavoritos",
+        JSON.stringify(favoritos)
+    );
+
+    carregarTimeFavorito();
+
+}
+
+
+carregarTimeFavorito();
+
+</script>
+
 {% endblock %}
+```

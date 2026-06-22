@@ -120,6 +120,20 @@ def videos_page(
         }
     )
 
+@app.get("/times-page", response_class=HTMLResponse)
+def times_page(
+    request: Request,
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
+
+    return templates.TemplateResponse(
+        request=request,
+        name="times.html",
+        context={
+            "nome": usuario.nome if usuario else None
+        }
+    )
+
 @app.get("/home-page", response_class=HTMLResponse)
 def home_page(request: Request, usuario: Optional[Usuario] = Depends(obter_usuario_logado)):
 
@@ -550,8 +564,6 @@ def formula1():
 
     return noticias
 
-import requests
-
 YOUTUBE_API_KEY = "AIzaSyBNSESwTKK4l2qNDGjYtZSB35aGD_DkOEU"
 
 @app.get("/api/videos/{esporte}")
@@ -590,3 +602,41 @@ def videos(esporte: str):
         })
 
     return videos
+
+# --- API TIMES ---
+times_cache = {}
+
+@app.get("/api/times/{nome}")
+def buscar_times(nome: str):
+
+    nome = nome.strip().lower()
+
+    if nome in times_cache:
+        return times_cache[nome]
+
+    url = (
+        "https://www.thesportsdb.com/api/v1/json/3/searchteams.php"
+        f"?t={nome}"
+    )
+
+    resposta = requests.get(url)
+    dados = resposta.json()
+
+    if dados["teams"] is None:
+        times_cache[nome] = []  
+        return []
+
+    times = []
+
+    for time in dados["teams"]:
+        times.append({
+            "nome": time["strTeam"],
+            "pais": time["strCountry"],
+            "liga": time["strLeague"],
+            "escudo": time["strBadge"]
+        })
+
+    # Salva no cache
+    times_cache[nome] = times
+
+    return times

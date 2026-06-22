@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>⚽ Escolha seus times favoritos</h1>
+
+<input
+    type="text"
+    id="pesquisa"
+    placeholder="Pesquisar time..."
+>
+
+<div id="lista-times">
+
+</div>
+
+<script>
+    const    USUARIO_LOGADO = {{ "true" if nome else "false" }};
+</script>
+<script src="/static/js/times.js"></script>
+
+{% endblock %}
