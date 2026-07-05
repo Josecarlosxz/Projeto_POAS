@@ -48,4 +48,31 @@ Etapa 6(13/06 - 10/07):
 - Inicio da implementação da busca de noticias;
 - Inicio do desenvolvimento da api de campeonatos.
 
-Etapa 7(11/07 - 
+Etapa 7(11/07 - 14/08):
+- Finalização da busca de noticias;
+- Finalização do simulador de resultados;
+- Continuação do desenvolvimento da api de campeonatos.
+
+Etapa 8(15/08 - 31/08)
+- Finalização do desenvolvimento da api de campeonatos.
+
+Etapa 9(01/09 - 18/09)
+- Testagem das funcionalidades do sistema.
+
+Etapa 10(19/09 - 30/09)
+- Correção dos bugs encontrados.
+
+Etapa 11(01/10 - 09/10)
+- Alterações no layout do sistema;
+
+Etapa 12(10/10 - 23/10)
+- Implementação de gamificação.
+
+Etapa 13(24/10 - 06/11)
+- Testagem da gamificação;
+- Alterações no layout.
+
+Etapa 14(07/11 - 30/11)
+- Otimização do desempenho;
+- Revisão e organização do código-fonte;
+- Preparação e apresentação da versão final do sistema.
