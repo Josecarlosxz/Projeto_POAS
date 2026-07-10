@@ -12,7 +12,6 @@ class Usuario(SQLModel, table=True):
 
     nome: str
     email: str = Field(unique=True, index=True)
-    # Armazena hash (não senha em texto puro)
     senha_hash: str
 
     criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
