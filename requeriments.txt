@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+alembic
 sqlmodel
 passlib
 email-validator
