@@ -1,4 +1,4 @@
-# Documento de Engenharia de Software
+# Documento de requisitos e regras de negociio
 
 Este documento descreve os requisitos funcionais, não funcionais e as regras de negócio que guiam o desenvolvimento da plataforma esportiva.
 
