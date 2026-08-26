@@ -11,6 +11,7 @@ import traceback
 import bcrypt
 from jose import jwt, JWTError
 from datetime import datetime, timezone, timedelta
+from urllib.parse import quote
 
 from fastapi.security import OAuth2PasswordBearer
 
@@ -640,3 +641,76 @@ def buscar_times(nome: str):
     times_cache[nome] = times
 
     return times
+
+# --- API BARRA DE BUSCA ---
+@app.get("/api/buscar-noticias")
+def buscar_noticias(q: str):
+    q = q.strip()
+
+    if not q:
+        return []
+
+    termos = [
+        termo.lower()
+        for termo in q.split()
+        if len(termo) >= 2
+    ]
+
+    if not termos:
+        return []
+
+    consulta = " AND ".join(f'"{termo}"' for termo in termos)
+
+    url = (
+        "https://newsapi.org/v2/everything?"
+        f"q={quote(consulta)}"
+        "&language=pt"
+        "&sortBy=publishedAt"
+        "&pageSize=100"
+        f"&apiKey={API_KEY}"
+    )
+
+    resposta = requests.get(url, timeout=10)
+
+    if resposta.status_code != 200:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "erro": "Falha ao buscar notícias",
+                "detalhes": resposta.text
+            }
+        )
+
+    dados = resposta.json()
+
+    noticias = []
+
+    for artigo in dados.get("articles", []):
+
+        titulo = artigo.get("title") or ""
+        descricao = artigo.get("description") or ""
+        conteudo = artigo.get("content") or ""
+
+        texto_completo = (
+            f"{titulo} {descricao} {conteudo}"
+        ).lower()
+
+        if not all(termo in texto_completo for termo in termos):
+            continue
+
+        if not titulo:
+            continue
+
+        if not artigo.get("urlToImage"):
+            continue
+
+        noticias.append({
+            "titulo": titulo,
+            "descricao": descricao,
+            "imagem": artigo["urlToImage"],
+            "link": artigo.get("url"),
+            "fonte": artigo.get("source", {}).get("name"),
+            "data": artigo.get("publishedAt")
+        })
+
+    return noticias[:20]

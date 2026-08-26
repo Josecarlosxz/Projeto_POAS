@@ -37,7 +37,21 @@
                 <a href="/videos-page">Vídeos</a>
                 <a href="/times-page">Times</a>
                 <a href="#">Campeonatos</a>
+
             </nav>
+
+            <div class="search-container">
+                    <input 
+                        type="text"
+                        id="campo-pesquisa"
+                        placeholder="Buscar noticias..."
+                    >
+
+                    <button id="btn-pesquisa">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+
+            </div>
 
             <div class="header-actions">
                 {% if nome %}
@@ -115,25 +129,78 @@
         </div>
     </footer>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const btnUsuario = document.getElementById('btn-usuario');
-            const dropdownUsuario = document.getElementById('dropdown-usuario');
+<script>
+document.addEventListener("DOMContentLoaded", function () {
 
-            if (btnUsuario && dropdownUsuario) {
-                btnUsuario.addEventListener('click', function(event) {
-                    event.stopPropagation();
-                    dropdownUsuario.classList.toggle('hidden');
-                });
+    const campo = document.getElementById("campo-pesquisa");
+    const botao = document.getElementById("btn-pesquisa");
 
-                document.addEventListener('click', function(event) {
-                    if (!btnUsuario.contains(event.target) && !dropdownUsuario.contains(event.target)) {
-                        dropdownUsuario.classList.add('hidden');
-                    }
-                });
+    async function pesquisarNoticias() {
+
+        const termo = campo.value.trim();
+
+        if (!termo) {
+            return;
+        }
+
+        try {
+
+            const resposta = await fetch(
+                `/api/buscar-noticias?q=${encodeURIComponent(termo)}`
+            );
+
+            const noticias = await resposta.json();
+
+            const feed = document.getElementById("feed-noticias");
+
+            feed.innerHTML = "";
+
+            if (noticias.length === 0) {
+                feed.innerHTML = `
+                    <p>Nenhuma notícia encontrada para "${termo}".</p>
+                `;
+                return;
             }
-        });
-    </script>
+
+            noticias.forEach(noticia => {
+
+                feed.innerHTML += `
+                    <article class="card-noticia">
+                        <img src="${noticia.imagem}" alt="${noticia.titulo}">
+
+                        <div class="info">
+                            <div class="fonte">
+                                ${noticia.fonte}
+                        </div>
+
+                            <h2>${noticia.titulo}</h2>
+
+                            <p>${noticia.descricao || ""}</p>
+
+                            <a href="${noticia.link}" target="_blank">
+                                Ler notícia
+                            </a>
+                        </div>
+                    </article>
+                `;
+
+            });
+
+        } catch (erro) {
+            console.error("Erro:", erro);
+        }
+    }
+
+    botao.addEventListener("click", pesquisarNoticias);
+
+    campo.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            pesquisarNoticias();
+        }
+    });
+
+});
+</script>
 
 </body>
 </html>
