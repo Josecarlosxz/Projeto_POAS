@@ -40,7 +40,7 @@
 
             </nav>
 
-            <div class="search-container">
+            <div id="barra-pesquisa" class="search-container">
                     <input 
                         type="text"
                         id="campo-pesquisa"
@@ -132,6 +132,21 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
+    const barraPesquisa = document.getElementById("barra-pesquisa");
+
+    const paginasSemPesquisa = [
+        "/videos-page",
+        "/times-page",
+        "/simulador-page",
+        "/campeonatos-page"
+    ];
+
+    const paginaAtual = window.location.pathname;
+
+    if (barraPesquisa && paginasSemPesquisa.includes(paginaAtual)) {
+        barraPesquisa.style.display = "none";
+    }
+
     const campo = document.getElementById("campo-pesquisa");
     const botao = document.getElementById("btn-pesquisa");
 
@@ -149,16 +164,26 @@ document.addEventListener("DOMContentLoaded", function () {
                 `/api/buscar-noticias?q=${encodeURIComponent(termo)}`
             );
 
+            if (!resposta.ok) {
+                throw new Error("Erro ao buscar notícias");
+            }
+
             const noticias = await resposta.json();
 
             const feed = document.getElementById("feed-noticias");
 
+            if (!feed) {
+                return;
+            }
+
             feed.innerHTML = "";
 
             if (noticias.length === 0) {
+
                 feed.innerHTML = `
                     <p>Nenhuma notícia encontrada para "${termo}".</p>
                 `;
+
                 return;
             }
 
@@ -166,38 +191,61 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 feed.innerHTML += `
                     <article class="card-noticia">
-                        <img src="${noticia.imagem}" alt="${noticia.titulo}">
+
+                        <img 
+                            src="${noticia.imagem}" 
+                            alt="${noticia.titulo}"
+                        >
 
                         <div class="info">
+
                             <div class="fonte">
                                 ${noticia.fonte}
-                        </div>
+                            </div>
 
-                            <h2>${noticia.titulo}</h2>
+                            <h2>
+                                ${noticia.titulo}
+                            </h2>
 
-                            <p>${noticia.descricao || ""}</p>
+                            <p>
+                                ${noticia.descricao || ""}
+                            </p>
 
-                            <a href="${noticia.link}" target="_blank">
+                            <a 
+                                href="${noticia.link}" 
+                                target="_blank"
+                            >
                                 Ler notícia
                             </a>
+
                         </div>
+
                     </article>
                 `;
 
             });
 
         } catch (erro) {
+
             console.error("Erro:", erro);
+
         }
     }
 
-    botao.addEventListener("click", pesquisarNoticias);
+    if (botao && campo) {
 
-    campo.addEventListener("keydown", function(event) {
-        if (event.key === "Enter") {
-            pesquisarNoticias();
-        }
-    });
+        botao.addEventListener("click", pesquisarNoticias);
+
+
+        campo.addEventListener("keydown", function(event) {
+
+            if (event.key === "Enter") {
+                pesquisarNoticias();
+            }
+
+        });
+
+    }
 
 });
 </script>

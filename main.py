@@ -714,3 +714,93 @@ def buscar_noticias(q: str):
         })
 
     return noticias[:20]
+
+@app.get("/api/buscar-videos")
+def buscar_videos(q: str):
+
+    q = q.strip()
+
+    if not q:
+        return []
+
+
+    url = (
+        "https://www.googleapis.com/youtube/v3/search"
+        "?part=snippet"
+        "&type=video"
+        "&maxResults=20"
+        f"&q={quote(q)}"
+        f"&key={YOUTUBE_API_KEY}"
+    )
+
+
+    resposta = requests.get(
+        url,
+        timeout=10
+    )
+
+
+    if resposta.status_code != 200:
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "erro": "Falha ao buscar vídeos",
+                "detalhes": resposta.text
+            }
+        )
+
+
+    dados = resposta.json()
+
+    videos = []
+
+
+    for video in dados.get("items", []):
+
+        video_id = video.get(
+            "id",
+            {}
+        ).get("videoId")
+
+
+        snippet = video.get(
+            "snippet",
+            {}
+        )
+
+
+        if not video_id:
+            continue
+
+
+        videos.append({
+
+            "titulo":
+                snippet.get(
+                    "title",
+                    "Sem título"
+                ),
+
+            "canal":
+                snippet.get(
+                    "channelTitle",
+                    "Canal desconhecido"
+                ),
+
+            "thumbnail":
+                snippet.get(
+                    "thumbnails",
+                    {}
+                ).get(
+                    "high",
+                    {}
+                ).get("url"),
+
+            "id":
+                video_id
+
+        })
+
+
+    return videos
