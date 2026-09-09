@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 import traceback
 
 import bcrypt
+import json
 from jose import jwt, JWTError
 from datetime import datetime, timezone, timedelta
 from urllib.parse import quote
@@ -132,6 +133,32 @@ def times_page(
         name="times.html",
         context={
             "nome": usuario.nome if usuario else None
+        }
+    )
+
+@app.get("/campeonatos-page", response_class=HTMLResponse)
+def campeonatos_page(
+    request: Request,
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="campeonatos.html",
+        context={"nome": usuario.nome if usuario else None}
+    )
+
+@app.get("/campeonato-page/{campeonato_id}", response_class=HTMLResponse)
+def campeonato_detalhe_page(
+    campeonato_id: int,
+    request: Request,
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
+    return templates.TemplateResponse(
+        request=request,
+        name="campeonato_detalhe.html",
+        context={
+            "nome": usuario.nome if usuario else None,
+            "campeonato_id": campeonato_id
         }
     )
 
@@ -804,3 +831,72 @@ def buscar_videos(q: str):
 
 
     return videos
+
+# --- API CAMPEONATOS ---
+@app.post("/api/campeonatos")
+def criar_campeonato(
+    nome: str = Form(...),
+    esporte: str = Form(...),
+    times: str = Form(...),  # JSON string, ex: '["Time A","Time B"]'
+    session: Session = Depends(get_session),
+    usuario: Optional[Usuario] = Depends(obter_usuario_logado)
+):
+    try:
+        lista_times = json.loads(times)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Times inválidos")
+
+    lista_times = [t.strip() for t in lista_times if t.strip()]
+
+    if len(lista_times) < 2:
+        raise HTTPException(status_code=400, detail="Insira ao menos 2 times")
+
+    novo_campeonato = Campeonato(
+        nome=nome,
+        esporte=esporte,
+        quantidade_times=len(lista_times),
+        times=json.dumps(lista_times),
+        criador_id=usuario.id if usuario else None
+    )
+    session.add(novo_campeonato)
+    session.commit()
+    session.refresh(novo_campeonato)
+
+    return {
+        "id": novo_campeonato.id,
+        "nome": novo_campeonato.nome,
+        "esporte": novo_campeonato.esporte,
+        "quantidade_times": novo_campeonato.quantidade_times,
+        "times": lista_times
+    }
+
+@app.get("/api/campeonatos")
+def listar_campeonatos(session: Session = Depends(get_session)):
+    statement = select(Campeonato).order_by(Campeonato.id.desc())
+    campeonatos = session.exec(statement).all()
+
+    return [
+        {
+            "id": c.id,
+            "nome": c.nome,
+            "esporte": c.esporte,
+            "quantidade_times": c.quantidade_times,
+            "times": json.loads(c.times)
+        }
+        for c in campeonatos
+    ]
+
+@app.get("/api/campeonatos/{campeonato_id}")
+def obter_campeonato(campeonato_id: int, session: Session = Depends(get_session)):
+    campeonato = session.get(Campeonato, campeonato_id)
+
+    if not campeonato:
+        raise HTTPException(status_code=404, detail="Campeonato não encontrado")
+
+    return {
+        "id": campeonato.id,
+        "nome": campeonato.nome,
+        "esporte": campeonato.esporte,
+        "quantidade_times": campeonato.quantidade_times,
+        "times": json.loads(campeonato.times)
+    }

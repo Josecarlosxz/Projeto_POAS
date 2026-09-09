@@ -16,6 +16,15 @@ class Usuario(SQLModel, table=True):
 
     criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class Campeonato(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nome: str
+    esporte: str
+    quantidade_times: int
+    times: str
+    criador_id: Optional[int] = Field(default=None, foreign_key="usuarios.id")
+    criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # Schemas
 
 class UsuarioCadastro(BaseModel):

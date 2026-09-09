@@ -819,6 +819,246 @@ a {
     text-align: right;  
 }
 
+.campeonatos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.btn-criar-campeonato {
+    background: #1a56ff;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+
+.btn-criar-campeonato:hover {
+    background: #003cd2;
+}
+
+#feed-campeonatos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.card-campeonato {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-campeonato:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.1);
+}
+
+.card-campeonato-topo {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.badge-esporte {
+    background: #f0fdf4;
+    color: #16a34a;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+}
+
+.badge-times {
+    background: #eff6ff;
+    color: #1a56ff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.card-campeonato h3 { 
+    font-size: 18px; 
+    color: #111827; 
+    margin-bottom: 6px; 
+}
+
+.card-campeonato p { 
+    color: #6b7280; 
+    font-size: 13px; 
+    margin-bottom: 10px; 
+}
+
+.ver-detalhes { 
+    color: #1a56ff; 
+    font-weight: 600; 
+    font-size: 13px; 
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.modal-overlay.hidden { 
+    display: none; 
+}
+
+.modal-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.btn-fechar { 
+    background: none; 
+    border: none; 
+    font-size: 24px; 
+    cursor: pointer; 
+    color: #6b7280; 
+}
+
+.form-group { 
+    margin-bottom: 14px; 
+}
+
+.form-group label { 
+    display: block; 
+    font-size: 13px; 
+    font-weight: 600; 
+    margin-bottom: 6px; 
+    color: #374151; 
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.lista-inputs-times {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.btn-salvar-campeonato {
+    width: 100%;
+    background: #22c55e;
+    color: #030712;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-salvar-campeonato:hover { 
+    background: #16a34a; 
+    color: #fff; 
+}
+
+.detalhe-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.link-voltar { 
+    color: #1a56ff; 
+    font-weight: 600; 
+    font-size: 14px; 
+}
+
+.detalhe-subtitulo { 
+    color: #6b7280; 
+    margin-bottom: 20px; 
+}
+
+.tabela-times {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    border: 1px solid #e5e7eb;
+}
+
+.tabela-times thead {
+    background: #111827;
+    color: #fff;
+}
+
+.tabela-times th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tabela-times th:first-child,
+.tabela-times td.col-posicao {
+    width: 60px;
+    text-align: center;
+}
+
+.tabela-times td {
+    padding: 12px 16px;
+    border-top: 1px solid #f3f4f6;
+    font-size: 14px;
+    color: #111827;
+}
+
+.tabela-times tbody tr:hover {
+    background: #f9fafb;
+}
+
+.col-time {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.col-time i {
+    color: #1a56ff;
+}
+
 
 @media (min-width: 640px) {
     .nav-links { display: flex; }
