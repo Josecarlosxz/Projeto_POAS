@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}IFSCORE - A casa dos esportes{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+
+</head>
+<body>
+
+    <div class="top-bar">
+        <div class="top-bar-links">
+            <a href="/home-page">FUTEBOL</a>
+            <a href="/basquete-page">BASQUETE</a>
+            <a href="/ufc-page">UFC</a>
+            <a href="/futebol-americano-page">NFL</a>
+            <a href="/formula1-page">FORMULA1</a>
+        </div>
+        <div class="live-badge">
+            <i class="fa-solid fa-circle live-dot"></i> AO VIVO
+        </div>
+    </div>
+
+    <header class="main-header">
+        <div class="header-container">
+            
+            <div class="logo">
+                <a href="{% if nome %}/home-page{% else %}/{% endif %}">
+                    <img src="{{ url_for('static', path='images/IFScore.png') }}" alt="Logo IFScore" class="logo-img">
+                </a>
+            </div>
+
+            <nav class="nav-links">
+                <a href="{% if nome %}/home-page{% else %}/{% endif %}">Início</a>
+                <a href="/videos-page">Vídeos</a>
+                <a href="/times-page">Times</a>
+                <a href="/campeonatos-page">Campeonatos</a>
+
+            </nav>
+
+            <div id="barra-pesquisa" class="search-container">
+                    <input 
+                        type="text"
+                        id="campo-pesquisa"
+                        placeholder="Buscar noticias..."
+                    >
+
+                    <button id="btn-pesquisa">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+
+            </div>
+
+            <div class="header-actions">
+                {% if nome %}
+                    <div class="user-menu-container">
+                        <button id="btn-usuario" class="btn-user">
+                            <i class="fa-solid fa-user-circle"></i>
+                            <span>Olá, <strong>{{ nome }}</strong></span>
+                            <i class="fa-solid fa-chevron-down" style="font-size: 10px; margin-left: 4px;"></i>
+                        </button>
+
+                        <div id="dropdown-usuario" class="dropdown-menu hidden">
+                            <div class="dropdown-header">
+                                <p>Olá</p>
+                                <p>{{ nome }}</p>
+                            </div>
+                            <div id="informations-usuario" class="dropdown-item-usuario">
+                                <i class="fa-solid fa-user-gear"></i>
+                                <a href="{% if nome %}/usuario-page{% else %}/{% endif %}">Minha conta</a>
+                            </div>
+
+                            <a href="/logout" class="dropdown-item-logout">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                                <span>Sair / Logout</span>
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="/login-page" class="btn-entrar">Entrar</a>
+                    <a href="/cadastro-page" class="btn-cadastrar">Cadastre-se</a>
+                {% endif %}
+            </div>
+
+        </div>
+    </header>
+
+    <main class="main-content">
+        {% block content %}
+        <h1 class="titulo-noticias">
+            Últimas notícias do futebol
+        </h1>
+
+        <div id="feed-noticias">
+
+        </div>
+
+        <script src="/static/js/noticias.js"></script>
+        {% endblock %}
+    </main>
+
+    <footer class="main-footer">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <span class="brand-logo">IFScore</span>
+                <p>O seu portal definitivo sobre todas as modalidades esportivas. Cobertura completa e bastidores do mundo da bola.</p>
+            </div>
+            <div class="footer-links">
+                <h4>Links Úteis</h4>
+                <ul>
+                    <li><a href="{% if nome %}/home-page{% else %}/{% endif %}">Página Inicial</a></li>
+                    <li><a href="/login-page">Acessar Conta</a></li>
+                    <li><a href="/cadastro-page">Cadastre-se</a></li>
+                </ul>
+            </div>
+            <div class="footer-social">
+                <h4>Redes Sociais</h4>
+                <div class="social-icons">
+                    <a href="#"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="#"><i class="fa-brands fa-youtube"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2026 IFScore Esportes. Todos os direitos reservados.
+        </div>
+    </footer>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const barraPesquisa = document.getElementById("barra-pesquisa");
+
+    const paginasSemPesquisa = [
+        "/videos-page",
+        "/times-page",
+        "/simulador-page",
+        "/campeonatos-page",
+        "/cadastro-page",
+        "/login-page"
+    ];
+
+    const paginaAtual = window.location.pathname;
+
+    if (barraPesquisa && paginasSemPesquisa.includes(paginaAtual)) {
+        barraPesquisa.style.display = "none";
+    }
+
+    const campo = document.getElementById("campo-pesquisa");
+    const botao = document.getElementById("btn-pesquisa");
+
+    async function pesquisarNoticias() {
+
+        const termo = campo.value.trim();
+
+        if (!termo) {
+            return;
+        }
+
+        try {
+
+            const resposta = await fetch(
+                `/api/buscar-noticias?q=${encodeURIComponent(termo)}`
+            );
+
+            if (!resposta.ok) {
+                throw new Error("Erro ao buscar notícias");
+            }
+
+            const noticias = await resposta.json();
+
+            const feed = document.getElementById("feed-noticias");
+
+            if (!feed) {
+                return;
+            }
+
+            feed.innerHTML = "";
+
+            if (noticias.length === 0) {
+
+                feed.innerHTML = `
+                    <p>Nenhuma notícia encontrada para "${termo}".</p>
+                `;
+
+                return;
+            }
+
+            noticias.forEach(noticia => {
+
+                feed.innerHTML += `
+                    <article class="card-noticia">
+
+                        <img 
+                            src="${noticia.imagem}" 
+                            alt="${noticia.titulo}"
+                        >
+
+                        <div class="info">
+
+                            <div class="fonte">
+                                ${noticia.fonte}
+                            </div>
+
+                            <h2>
+                                ${noticia.titulo}
+                            </h2>
+
+                            <p>
+                                ${noticia.descricao || ""}
+                            </p>
+
+                            <a 
+                                href="${noticia.link}" 
+                                target="_blank"
+                            >
+                                Ler notícia
+                            </a>
+
+                        </div>
+
+                    </article>
+                `;
+
+            });
+
+        } catch (erro) {
+
+            console.error("Erro:", erro);
+
+        }
+    }
+
+    if (botao && campo) {
+
+        botao.addEventListener("click", pesquisarNoticias);
+
+
+        campo.addEventListener("keydown", function(event) {
+
+            if (event.key === "Enter") {
+                pesquisarNoticias();
+            }
+
+        });
+
+    }
+
+});
+</script>
+
+</body>
+</html>

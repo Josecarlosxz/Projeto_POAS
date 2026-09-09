@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="campeonatos-header">
+    <h1>🏆 Campeonatos</h1>
+    <button id="btn-abrir-modal" class="btn-criar-campeonato">
+        <i class="fa-solid fa-plus"></i> Criar Campeonato
+    </button>
+</div>
+
+<div id="feed-campeonatos"></div>
+
+<div id="modal-campeonato" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Novo Campeonato</h2>
+            <button type="button" id="btn-fechar-modal" class="btn-fechar">&times;</button>
+        </div>
+
+        <form id="form-campeonato">
+            <div class="form-group">
+                <label for="nome-campeonato">Nome do campeonato</label>
+                <input type="text" id="nome-campeonato" required placeholder="Ex: Campeonato de Verão">
+            </div>
+
+            <div class="form-group">
+                <label for="esporte-campeonato">Esporte</label>
+                <select id="esporte-campeonato" required>
+                    <option value="Futebol">Futebol</option>
+                    <option value="Basquete">Basquete</option>
+                    <option value="UFC">UFC</option>
+                    <option value="NFL">Futebol Americano</option>
+                    <option value="Formula1">Fórmula 1</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="quantidade-times">Quantidade de times</label>
+                <input type="number" id="quantidade-times" min="2" max="32" value="4" required>
+            </div>
+
+            <div id="lista-inputs-times" class="lista-inputs-times"></div>
+
+            <button type="submit" class="btn-salvar-campeonato">Criar Campeonato</button>
+        </form>
+    </div>
+</div>
+
+<script src="/static/js/campeonatos.js"></script>
+
+{% endblock %}

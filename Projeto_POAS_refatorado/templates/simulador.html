@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Simulador de Playoffs - IFScore{% endblock %}
+
+{% block content %}
+<div class="simulador-container" style="padding: 40px 20px; max-width: 1200px; margin: 0 auto; min-height: 80vh;">
+    
+    <div class="simulador-header" style="text-align: center; margin-bottom: 40px;">
+        <h1 style="color: var(--white, #ffffff); font-size: 2.5rem; margin-bottom: 10px; font-weight: 700;">
+            🏆 Simulador de Playoffs
+        </h1>
+        <p style="color: #a0aec0; font-size: 1.1rem;">
+            Selecione os vencedores clicando nos cards para avançar os seus palpites até à Grande Final!
+        </p>
+    </div>
+
+    <div class="bracket-wrapper" style="background-color: var(--card-bg, #1a1a1a); padding: 30px; border-radius: 12px; border: 1px solid #2d2d2d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow-x: auto;">
+        <div class="bracket-container" style="display: flex; gap: 50px; align-items: center; justify-content: center; min-width: 800px;">
+            
+            <div class="bracket-fase" id="quartas" style="display: flex; flex-direction: column; gap: 30px;">
+                </div>
+
+            <div class="bracket-fase" style="display: flex; flex-direction: column; gap: 110px;">
+                
+                <div class="confronto-box" style="border: 2px solid #2d2d2d; background: #111; border-radius: 8px; width: 200px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <div class="time-card vaga-espera" id="sf1-vaga1">Aguardando Q1...</div>
+                    <div class="time-card vaga-espera" id="sf1-vaga2">Aguardando Q2...</div>
+                </div>
+
+                <div class="confronto-box" style="border: 2px solid #2d2d2d; background: #111; border-radius: 8px; width: 200px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <div class="time-card vaga-espera" id="sf2-vaga1">Aguardando Q3...</div>
+                    <div class="time-card vaga-espera" id="sf2-vaga2">Aguardando Q4...</div>
+                </div>
+
+            </div>
+
+            <div class="bracket-fase" style="display: flex; flex-direction: column; justify-content: center;">
+                
+                <div class="confronto-box" style="border: 2px solid var(--accent-color, #ff4a4a); background: #111; border-radius: 8px; width: 200px; overflow: hidden; box-shadow: 0 0 20px rgba(255, 74, 74, 0.2);">
+                    <div class="time-card vaga-espera" id="f-vaga1" style="border-bottom: 1px solid #2d2d2d;">Finalista 1</div>
+                    <div class="time-card vaga-espera" id="f-vaga2">Finalista 2</div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+    .time-card {
+        padding: 15px;
+        color: #ffffff;
+        font-family: inherit;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        background: #1e1e1e;
+        user-select: none;
+    }
+
+    .confronto-box .time-card:first-child {
+        border-bottom: 1px solid #2d2d2d;
+    }
+
+    .time-card:not(.vaga-espera):hover {
+        background-color: #2a2a2a !important;
+        color: var(--accent-color, #ff4a4a) !important;
+        padding-left: 22px !important;
+    }
+
+    .time-card.vencedor {
+        background-color: #2ecc71 !important; 
+        color: #ffffff !important;
+        font-weight: bold;
+        transform: scale(1.01);
+    }
+
+    .time-card.perdedor {
+        opacity: 0.3;
+        background-color: #0d0d0d !important;
+    }
+    .vaga-espera {
+        background-color: #151515;
+        color: #555555;
+        font-style: italic;
+        cursor: not-allowed;
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const response = await fetch('/api/simulador/confrontos-iniciais');
+        const dados = await response.json();
+        
+        const containerQuartas = document.getElementById('quartas');
+        
+        const rotasAvanco = {
+            "q1": "sf1-vaga1", "q2": "sf1-vaga2",
+            "q3": "sf2-vaga1", "q4": "sf2-vaga2"
+        };
+
+        dados.quartas.forEach(jogo => {
+            const divConfronto = document.createElement('div');
+            divConfronto.className = 'confronto-box';
+            divConfronto.style.border = '2px solid #2d2d2d';
+            divConfronto.style.background = '#111';
+            divConfronto.style.borderRadius = '8px';
+            divConfronto.style.width = '200px';
+            divConfronto.style.overflow = 'hidden';
+            divConfronto.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+            divConfronto.id = jogo.id_jogo;
+            
+            divConfronto.innerHTML = `
+                <div class="time-card" onclick="avancarTime('${jogo.id_jogo}', '${jogo.time1}', '${rotasAvanco[jogo.id_jogo]}')">${jogo.time1}</div>
+                <div class="time-card" onclick="avancarTime('${jogo.id_jogo}', '${jogo.time2}', '${rotasAvanco[jogo.id_jogo]}')">${jogo.time2}</div>
+            `;
+            containerQuartas.appendChild(divConfronto);
+        });
+
+        document.getElementById('sf1-vaga1').parentElement.onclick = (e) => lidarCliqueFasesFinais(e, 'f-vaga1');
+        document.getElementById('sf2-vaga1').parentElement.onclick = (e) => lidarCliqueFasesFinais(e, 'f-vaga2');
+    });
+
+    function avancarTime(idConfronto, timeEscolhido, idProximaVaga) {
+        const confronto = document.getElementById(idConfronto);
+        const times = confronto.getElementsByClassName('time-card');
+
+        for (let t of times) {
+            if (t.innerText === timeEscolhido) {
+                t.classList.add('vencedor'); t.classList.remove('perdedor');
+            } else {
+                t.classList.add('perdedor'); t.classList.remove('vencedor');
+            }
+        }
+
+        const proximaVaga = document.getElementById(idProximaVaga);
+        proximaVaga.classList.remove('vaga-espera', 'vencedor', 'perdedor');
+        proximaVaga.style.opacity = 0;
+        proximaVaga.innerText = timeEscolhido;
+        
+        setTimeout(() => { proximaVaga.style.opacity = 1; }, 100);
+    }
+
+    function lidarCliqueFasesFinais(evento, idVagaFinal) {
+        const timeCardClicado = evento.target;
+        
+        if (timeCardClicado.classList.contains('vaga-espera') || !timeCardClicado.classList.contains('time-card')) return;
+        
+        const confronto = timeCardClicado.parentElement;
+        const timeEscolhido = timeCardClicado.innerText;
+
+        const times = confronto.getElementsByClassName('time-card');
+        for (let t of times) {
+            if (t.innerText === timeEscolhido) {
+                t.classList.add('vencedor'); t.classList.remove('perdedor');
+            } else {
+                t.classList.add('perdedor'); t.classList.remove('vencedor');
+            }
+        }
+
+        const vagaFinal = document.getElementById(idVagaFinal);
+        vagaFinal.classList.remove('vaga-espera');
+        vagaFinal.innerText = timeEscolhido;
+    }
+</script>
+{% endblock %}

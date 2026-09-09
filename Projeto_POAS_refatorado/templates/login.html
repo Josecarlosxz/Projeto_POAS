@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Acessar o Sistema - IFSCORE{% endblock %}
+
+{% block content %}
+<div class="auth-split-container">
+    <div class="auth-welcome-side">
+        <div class="welcome-content">
+            <h1 class="welcome-text">Boas vindas a:</h1>
+            <div class="brand-logo-display">
+                <span class="brand-if">iF</span><span class="brand-score">Score</span>
+            </div>
+            <img src="{{ url_for('static', path='images/cleveland2016.webp') }}" alt="iFScore" class="welcome-illustration">
+        </div>
+    </div>
+
+    <div class="auth-form-side">
+        <div class="auth-card">
+            <h2 class="auth-title">Login</h2>
+            <p class="auth-subtitle">Insira seus dados para entrar na comunidade</p>
+            
+            <form action="/login" method="POST" class="auth-body">
+                <div class="auth-group">
+                    <label class="auth-label">Email:</label>
+                    <div class="auth-input-wrapper">
+                        <span class="auth-icon">
+                            <i class="fa-solid fa-envelope"></i>
+                        </span>
+                        <input type="email" name="email" required placeholder="seu@email.com" class="auth-input">
+                    </div>
+                </div>
+
+                <div class="auth-group">
+                    <label class="auth-label">Senha:</label>
+                    <div class="auth-input-wrapper">
+                        <span class="auth-icon">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        <input type="password" name="senha" required placeholder="••••••••" class="auth-input">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-auth-submit">Entrar</button>
+
+                <div class="auth-divider">
+                    <span>ou</span>
+                </div>
+
+                <p class="auth-footer-text">
+                    Não tem uma conta? <a href="/cadastro-page">Cadastre-se aqui</a>
+                </p>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

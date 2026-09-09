@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>🎥 Vídeos</h1>
+
+<div id="barra-pesquisa-videos">
+    <input
+        type="text"
+        id="campo-pesquisa-videos"
+        placeholder="Buscar vídeos..."
+    >
+
+    <button id="btn-pesquisa-videos">
+        🔍
+    </button>
+</div>
+
+<div id="feed-videos">
+</div>
+
+<script src="/static/js/videos.js"></script>
+
+<script>
+    carregarVideos("futebol");
+</script>
+
+{% endblock %}
