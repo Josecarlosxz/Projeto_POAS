@@ -1008,6 +1008,8 @@ a {
     margin-bottom: 20px; 
 }
 
+
+
 .tabela-times {
     width: 100%;
     border-collapse: collapse;
@@ -1109,4 +1111,203 @@ a {
     .grid-cards {
         grid-template-columns: repeat(3, 1fr);
     }
+}
+/* --- Classificação e partidas do campeonato --- */
+
+.secao-classificacao, .secao-partidas {
+    margin-top: 32px;
+}
+
+.secao-titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.secao-titulo h2 {
+    font-size: 20px;
+    font-weight: 900;
+    color: #111827;
+    margin: 0;
+}
+
+.btn-gerar-partidas {
+    background: #1a56ff;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+
+.btn-gerar-partidas:hover {
+    background: #003cd2;
+}
+
+.clf-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e5e7eb;
+}
+
+.clf-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 640px;
+}
+
+.clf-table thead {
+    background: #111827;
+    color: #fff;
+}
+
+.clf-table th {
+    text-align: center;
+    padding: 12px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.clf-th-esquerda {
+    text-align: left !important;
+}
+
+.clf-table tbody td {
+    text-align: center;
+    padding: 12px 10px;
+    border-top: 1px solid #f3f4f6;
+    font-size: 14px;
+    color: #111827;
+}
+
+.clf-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.clf-td-pos {
+    color: #9ca3af;
+    width: 32px;
+}
+
+.clf-td-nome {
+    text-align: left;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.clf-td-pts {
+    font-weight: 900;
+    font-size: 16px;
+    color: #1a56ff;
+}
+
+.clf-td-ultimas {
+    min-width: 150px;
+}
+
+.clf-icones {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+}
+
+.clf-icone {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #fff;
+}
+
+.clf-icone--vitoria { background: #22c55e; }
+.clf-icone--empate { background: #9ca3af; }
+.clf-icone--derrota { background: #dc2626; }
+.clf-icone--vazio { background: #e5e7eb; }
+
+.prt-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.prt-rodada h3 {
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 8px 0;
+}
+
+.prt-linha {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #111827;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.prt-time {
+    flex: 1;
+    font-weight: 600;
+}
+
+.prt-time--visitante {
+    text-align: left;
+}
+
+.prt-time--casa {
+    text-align: right;
+}
+
+.prt-input {
+    width: 42px;
+    text-align: center;
+    background: #f9fafb;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    color: #111827;
+    padding: 5px;
+    font-size: 14px;
+}
+
+.prt-btn-salvar {
+    background: #1a56ff;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.prt-btn-salvar:hover {
+    background: #003cd2;
+}
+
+.prt-linha--finalizada {
+    opacity: 0.8;
 }

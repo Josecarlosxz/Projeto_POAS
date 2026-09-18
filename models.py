@@ -25,6 +25,25 @@ class Campeonato(SQLModel, table=True):
     criador_id: Optional[int] = Field(default=None, foreign_key="usuarios.id")
     criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+
+class Partida(SQLModel, table=True):
+    __tablename__ = "partidas"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    campeonato_id: int = Field(foreign_key="campeonato.id", index=True)
+
+    rodada: int
+    turno: int  
+
+    time_casa: str
+    time_visitante: str
+
+    gols_casa: Optional[int] = Field(default=None)
+    gols_visitante: Optional[int] = Field(default=None)
+    finalizada: bool = Field(default=False)
+
+    criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # Schemas
 
 class UsuarioCadastro(BaseModel):
@@ -42,3 +61,7 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
+class ResultadoPartida(BaseModel):
+    gols_casa: int
+    gols_visitante: int
