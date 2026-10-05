@@ -36,12 +36,20 @@
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="quantidade-times">Quantidade de times</label>
-                <input type="number" id="quantidade-times" min="2" max="32" value="4" required>
-            </div>
+            <!-- Preenchido dinamicamente pelo JS de acordo com o esporte escolhido
+                 (ex: formato do futebol, conferências do basquete, categorias do UFC) -->
+            <div id="opcoes-especificas-esporte"></div>
 
-            <div id="lista-inputs-times" class="lista-inputs-times"></div>
+            <!-- Seção genérica de times: usada por todos os esportes, exceto Basquete
+                 (que define os times dentro de cada conferência, logo acima) -->
+            <div id="secao-times-padrao">
+                <div class="form-group">
+                    <label for="quantidade-times">Quantidade de times</label>
+                    <input type="number" id="quantidade-times" min="2" max="32" value="4" required>
+                </div>
+
+                <div id="lista-inputs-times" class="lista-inputs-times"></div>
+            </div>
 
             <button type="submit" class="btn-salvar-campeonato">Criar Campeonato</button>
         </form>

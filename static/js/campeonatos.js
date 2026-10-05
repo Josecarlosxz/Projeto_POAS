@@ -9,11 +9,20 @@ document.addEventListener("DOMContentLoaded", function () {
     const btnFechar = document.getElementById("btn-fechar-modal");
     const inputQuantidade = document.getElementById("quantidade-times");
     const listaInputsTimes = document.getElementById("lista-inputs-times");
+    const secaoTimesPadrao = document.getElementById("secao-times-padrao");
+    const selectEsporte = document.getElementById("esporte-campeonato");
+    const opcoesEspecificas = document.getElementById("opcoes-especificas-esporte");
     const form = document.getElementById("form-campeonato");
+
+    function limitarQuantidade(valor) {
+        let quantidade = parseInt(valor, 10);
+        if (isNaN(quantidade) || quantidade < 2) quantidade = 2;
+        if (quantidade > 32) quantidade = 32;
+        return quantidade;
+    }
 
     function gerarInputsTimes(quantidade) {
         listaInputsTimes.innerHTML = "";
-
         for (let i = 1; i <= quantidade; i++) {
             listaInputsTimes.innerHTML += `
                 <div class="form-group">
@@ -24,16 +33,146 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    gerarInputsTimes(parseInt(inputQuantidade.value));
+    // A seção genérica de times (usada por Futebol, UFC, NFL, F1, Outro) some
+    // quando o esporte é Basquete, que define os times dentro de cada conferência.
+    function atualizarVisibilidadeSecaoTimesPadrao(esporte) {
+        const ehBasquete = esporte === "Basquete";
+        secaoTimesPadrao.classList.toggle("hidden", ehBasquete);
+        inputQuantidade.required = !ehBasquete;
+        listaInputsTimes.querySelectorAll(".input-time").forEach(input => {
+            input.required = !ehBasquete;
+        });
+    }
+
+    function gerarInputsTimesConferencia(containerId, quantidade, rotulo) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
+        for (let i = 1; i <= quantidade; i++) {
+            container.innerHTML += `
+                <div class="form-group">
+                    <label>${rotulo} — Time ${i}</label>
+                    <input type="text" class="input-time-conferencia" placeholder="Nome do time ${i}" required>
+                </div>
+            `;
+        }
+    }
+
+    // Renderiza os campos extras de acordo com o esporte escolhido.
+    function renderizarOpcoesEspecificas(esporte) {
+        if (esporte === "Futebol") {
+            opcoesEspecificas.innerHTML = `
+                <div class="form-group">
+                    <label for="formato-futebol">Formato do campeonato</label>
+                    <select id="formato-futebol">
+                        <option value="pontos_corridos">Pontos corridos</option>
+                        <option value="grupos_playoffs">Fase de grupos + playoffs</option>
+                    </select>
+                    <small class="form-hint">Grupos de 4 times cada — use 8, 16 ou 32 times ao todo.</small>
+                </div>
+                <div class="form-group campo-rodadas-grupo hidden">
+                    <label for="turno-grupos-futebol">Rodadas dentro do grupo</label>
+                    <select id="turno-grupos-futebol">
+                        <option value="unico">Turno único (3 rodadas)</option>
+                        <option value="ida_volta">Ida e volta (6 rodadas)</option>
+                    </select>
+                </div>
+            `;
+
+            const selectFormato = document.getElementById("formato-futebol");
+            const campoRodadasGrupo = opcoesEspecificas.querySelector(".campo-rodadas-grupo");
+
+            const atualizarVisibilidadeRodadas = () => {
+                campoRodadasGrupo.classList.toggle("hidden", selectFormato.value !== "grupos_playoffs");
+            };
+            atualizarVisibilidadeRodadas();
+            selectFormato.addEventListener("change", atualizarVisibilidadeRodadas);
+
+        } else if (esporte === "Basquete") {
+            opcoesEspecificas.innerHTML = `
+                <div class="form-group">
+                    <label for="turno-temporada-basquete">Rodadas da temporada</label>
+                    <select id="turno-temporada-basquete">
+                        <option value="unico">Turno único</option>
+                        <option value="ida_volta">Ida e volta</option>
+                    </select>
+                </div>
+
+                <div class="bloco-conferencia">
+                    <div class="form-group">
+                        <label for="nome-conferencia-1">Nome da conferência</label>
+                        <input type="text" id="nome-conferencia-1" required placeholder="Ex: Conferência Leste">
+                    </div>
+                    <div class="form-group">
+                        <label for="qtd-times-conferencia-1">Quantidade de times</label>
+                        <input type="number" id="qtd-times-conferencia-1" min="2" max="32" value="4" required>
+                    </div>
+                    <div id="lista-times-conferencia-1" class="lista-inputs-times"></div>
+                </div>
+
+                <div class="bloco-conferencia">
+                    <div class="form-group">
+                        <label for="nome-conferencia-2">Nome da 2ª conferência (opcional)</label>
+                        <input type="text" id="nome-conferencia-2" placeholder="Deixe em branco se for só uma conferência">
+                    </div>
+                    <div class="form-group campo-qtd-conferencia-2 hidden">
+                        <label for="qtd-times-conferencia-2">Quantidade de times</label>
+                        <input type="number" id="qtd-times-conferencia-2" min="2" max="32" value="4">
+                    </div>
+                    <div id="lista-times-conferencia-2" class="lista-inputs-times"></div>
+                </div>
+            `;
+
+            const qtdConf1 = document.getElementById("qtd-times-conferencia-1");
+            gerarInputsTimesConferencia("lista-times-conferencia-1", limitarQuantidade(qtdConf1.value), "Conferência 1");
+            qtdConf1.addEventListener("input", () => {
+                qtdConf1.value = limitarQuantidade(qtdConf1.value);
+                gerarInputsTimesConferencia("lista-times-conferencia-1", parseInt(qtdConf1.value, 10), "Conferência 1");
+            });
+
+            const nomeConf2 = document.getElementById("nome-conferencia-2");
+            const campoQtdConf2 = opcoesEspecificas.querySelector(".campo-qtd-conferencia-2");
+            const qtdConf2 = document.getElementById("qtd-times-conferencia-2");
+
+            const atualizarConferencia2 = () => {
+                const temConferencia2 = nomeConf2.value.trim().length > 0;
+                campoQtdConf2.classList.toggle("hidden", !temConferencia2);
+                qtdConf2.required = temConferencia2;
+                if (temConferencia2) {
+                    gerarInputsTimesConferencia("lista-times-conferencia-2", limitarQuantidade(qtdConf2.value), "Conferência 2");
+                } else {
+                    document.getElementById("lista-times-conferencia-2").innerHTML = "";
+                }
+            };
+            nomeConf2.addEventListener("input", atualizarConferencia2);
+            qtdConf2.addEventListener("input", () => {
+                qtdConf2.value = limitarQuantidade(qtdConf2.value);
+                gerarInputsTimesConferencia("lista-times-conferencia-2", parseInt(qtdConf2.value, 10), "Conferência 2");
+            });
+            atualizarConferencia2();
+
+        } else {
+            opcoesEspecificas.innerHTML = "";
+        }
+    }
+
+    function coletarTimesDeConferencia(containerId) {
+        return Array.from(document.querySelectorAll(`#${containerId} .input-time-conferencia`))
+            .map(input => input.value.trim())
+            .filter(Boolean);
+    }
+
+    gerarInputsTimes(parseInt(inputQuantidade.value, 10));
+    renderizarOpcoesEspecificas(selectEsporte.value);
+    atualizarVisibilidadeSecaoTimesPadrao(selectEsporte.value);
 
     inputQuantidade.addEventListener("input", function () {
-        let quantidade = parseInt(inputQuantidade.value);
+        inputQuantidade.value = limitarQuantidade(inputQuantidade.value);
+        gerarInputsTimes(parseInt(inputQuantidade.value, 10));
+    });
 
-        if (isNaN(quantidade) || quantidade < 2) quantidade = 2;
-        if (quantidade > 32) quantidade = 32;
-
-        inputQuantidade.value = quantidade;
-        gerarInputsTimes(quantidade);
+    selectEsporte.addEventListener("change", function () {
+        renderizarOpcoesEspecificas(selectEsporte.value);
+        atualizarVisibilidadeSecaoTimesPadrao(selectEsporte.value);
     });
 
     btnAbrir.addEventListener("click", () => modal.classList.remove("hidden"));
@@ -47,22 +186,85 @@ document.addEventListener("DOMContentLoaded", function () {
         event.preventDefault();
 
         const nome = document.getElementById("nome-campeonato").value.trim();
-        const esporte = document.getElementById("esporte-campeonato").value;
+        const esporte = selectEsporte.value;
 
-        const inputsTimes = document.querySelectorAll(".input-time");
-        const times = Array.from(inputsTimes)
-            .map(input => input.value.trim())
-            .filter(Boolean);
+        let times;
+        let configuracao;
 
-        if (times.length < 2) {
-            alert("Insira ao menos 2 times!");
-            return;
+        if (esporte === "Basquete") {
+            const nomeConf1 = document.getElementById("nome-conferencia-1").value.trim();
+            const nomeConf2 = document.getElementById("nome-conferencia-2").value.trim();
+
+            if (!nomeConf1) {
+                alert("Informe o nome da conferência.");
+                return;
+            }
+
+            const timesConf1 = coletarTimesDeConferencia("lista-times-conferencia-1");
+            if (timesConf1.length < 2) {
+                alert(`A conferência "${nomeConf1}" precisa de ao menos 2 times.`);
+                return;
+            }
+
+            const conferencias = { [nomeConf1]: timesConf1 };
+            times = [...timesConf1];
+
+            if (nomeConf2) {
+                if (nomeConf2 === nomeConf1) {
+                    alert("As duas conferências precisam ter nomes diferentes.");
+                    return;
+                }
+                const timesConf2 = coletarTimesDeConferencia("lista-times-conferencia-2");
+                if (timesConf2.length < 2) {
+                    alert(`A conferência "${nomeConf2}" precisa de ao menos 2 times.`);
+                    return;
+                }
+                conferencias[nomeConf2] = timesConf2;
+                times = times.concat(timesConf2);
+            }
+
+            if (new Set(times).size !== times.length) {
+                alert("Não repita o nome de um time em conferências diferentes.");
+                return;
+            }
+
+            configuracao = {
+                conferencias,
+                turno_temporada: document.getElementById("turno-temporada-basquete").value,
+            };
+
+        } else {
+            times = Array.from(document.querySelectorAll(".input-time"))
+                .map(input => input.value.trim())
+                .filter(Boolean);
+
+            if (times.length < 2) {
+                alert("Insira ao menos 2 times!");
+                return;
+            }
+
+            configuracao = {};
+            if (esporte === "Futebol") {
+                const formato = document.getElementById("formato-futebol").value;
+                configuracao = { formato };
+                if (formato === "grupos_playoffs") {
+                    configuracao.turno_grupos = document.getElementById("turno-grupos-futebol").value;
+
+                    const numGrupos = times.length / 4;
+                    const numGruposValido = Number.isInteger(numGrupos) && (numGrupos & (numGrupos - 1)) === 0 && numGrupos >= 2;
+                    if (!numGruposValido) {
+                        alert("A fase de grupos + playoffs exige grupos de 4 times: use 8, 16 ou 32 times ao todo.");
+                        return;
+                    }
+                }
+            }
         }
 
         const formData = new FormData();
         formData.append("nome", nome);
         formData.append("esporte", esporte);
         formData.append("times", JSON.stringify(times));
+        formData.append("configuracao", JSON.stringify(configuracao));
 
         try {
             const resposta = await fetch("/api/campeonatos", {
@@ -70,17 +272,22 @@ document.addEventListener("DOMContentLoaded", function () {
                 body: formData
             });
 
-            if (!resposta.ok) throw new Error("Erro ao criar campeonato");
+            if (!resposta.ok) {
+                const erro = await resposta.json().catch(() => null);
+                throw new Error(erro?.detail || "Erro ao criar campeonato");
+            }
 
             modal.classList.add("hidden");
             form.reset();
-            gerarInputsTimes(parseInt(inputQuantidade.value));
+            gerarInputsTimes(parseInt(inputQuantidade.value, 10));
+            renderizarOpcoesEspecificas(selectEsporte.value);
+            atualizarVisibilidadeSecaoTimesPadrao(selectEsporte.value);
 
             await carregarCampeonatos();
 
         } catch (erro) {
             console.error(erro);
-            alert("Erro ao criar campeonato. Tente novamente.");
+            alert(erro.message || "Erro ao criar campeonato. Tente novamente.");
         }
     });
 });

@@ -961,6 +961,33 @@ a {
     font-size: 14px;
 }
 
+.form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.campo-rodadas-grupo.hidden {
+    display: none;
+}
+
+#secao-times-padrao.hidden {
+    display: none;
+}
+
+.bloco-conferencia {
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 14px;
+    margin-top: 14px;
+}
+
+.bloco-conferencia:first-of-type {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 0;
+}
+
 .lista-inputs-times {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1304,6 +1331,54 @@ a {
 
 .prt-linha--finalizada {
     opacity: 0.8;
+}
+
+/* --- Fase de grupos + playoffs --- */
+
+.acoes-partidas {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.abas-grupo {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.aba-grupo-btn {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    color: #6b7280;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.aba-grupo-btn:hover {
+    border-color: #1a56ff;
+    color: #1a56ff;
+}
+
+.aba-grupo-btn--ativa {
+    background: #1a56ff;
+    border-color: #1a56ff;
+    color: #fff;
+}
+
+.prt-select-penaltis {
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    color: #9a3412;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 
