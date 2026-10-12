@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Form
 from sqlmodel import Session
 
 from acesso_dados.database import get_session
-from dados.models import Usuario, ResultadoPartida
+from dados.models import Usuario, ResultadoPartida, ResultadoLuta, LutaRequest, CardRequest
 from negocio.auth_service import obter_usuario_logado
 from negocio.campeonato_service import (
     criar_campeonato as _criar_campeonato,
@@ -18,6 +18,12 @@ from negocio.partida_service import (
     calcular_classificacao as _calcular_classificacao,
     gerar_playoffs as _gerar_playoffs,
     avancar_fase_playoffs as _avancar_fase_playoffs,
+    atualizar_resultado_luta as _atualizar_resultado_luta,
+    criar_luta as _criar_luta,
+    remover_luta as _remover_luta,
+    listar_cards as _listar_cards,
+    criar_card as _criar_card,
+    remover_card as _remover_card,
 )
 
 router = APIRouter()
@@ -28,8 +34,8 @@ router = APIRouter()
 def criar_campeonato(
     nome: str = Form(...),
     esporte: str = Form(...),
-    times: str = Form(...),  # JSON string, ex: '["Time A","Time B"]'
-    configuracao: Optional[str] = Form(None),  # JSON string, ex: '{"formato":"grupos_playoffs"}'
+    times: str = Form(...), 
+    configuracao: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     usuario: Optional[Usuario] = Depends(obter_usuario_logado)
 ):
@@ -85,3 +91,41 @@ def gerar_playoffs(campeonato_id: int, session: Session = Depends(get_session)):
 def avancar_fase_playoffs(campeonato_id: int, session: Session = Depends(get_session)):
     """Gera a próxima fase do mata-mata (Semifinal, Final) ou devolve o campeão."""
     return _avancar_fase_playoffs(session, campeonato_id)
+
+
+# --- API UFC (lutas por categoria + luta de título) ---
+
+@router.put("/api/partidas/{partida_id}/resultado-luta")
+def atualizar_resultado_luta(
+    partida_id: int,
+    resultado: ResultadoLuta,
+    session: Session = Depends(get_session)
+):
+    """Registra o vencedor e o método (KO/TKO/SUB/DEC) de uma luta de UFC."""
+    return _atualizar_resultado_luta(session, partida_id, resultado.vencedor, resultado.metodo)
+
+@router.get("/api/campeonatos/{campeonato_id}/cards")
+def listar_cards(campeonato_id: int, session: Session = Depends(get_session)):
+    return _listar_cards(session, campeonato_id)
+
+@router.post("/api/campeonatos/{campeonato_id}/cards")
+def criar_card(campeonato_id: int, dados: CardRequest, session: Session = Depends(get_session)):
+    """Cria um card (evento) de UFC com o nome escolhido pelo usuário."""
+    return _criar_card(session, campeonato_id, dados.nome)
+
+@router.delete("/api/cards/{card_id}")
+def remover_card(card_id: int, session: Session = Depends(get_session)):
+    """Remove um card (só se nenhuma luta dele tiver resultado)."""
+    return _remover_card(session, card_id)
+
+@router.post("/api/cards/{card_id}/lutas")
+def criar_luta(card_id: int, dados: LutaRequest, session: Session = Depends(get_session)):
+    """Adiciona uma luta ao card: categoria, os dois lutadores e se vale o cinturão."""
+    return _criar_luta(
+        session, card_id, dados.categoria, dados.lutador_casa, dados.lutador_visitante, dados.titulo
+    )
+
+@router.delete("/api/lutas/{partida_id}")
+def remover_luta(partida_id: int, session: Session = Depends(get_session)):
+    """Remove uma luta marcada por engano (só se ainda não tiver resultado)."""
+    return _remover_luta(session, partida_id)

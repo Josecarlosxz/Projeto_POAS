@@ -1582,3 +1582,189 @@ a {
         font-size: 13px;
     }
 }
+/* --- UFC: categorias, campeão e lutas por método --- */
+
+.faixa-campeao {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.faixa-campeao--vazia {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    color: #6b7280;
+}
+
+.prt-select-vencedor,
+.prt-select-metodo {
+    background: #f9fafb;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    color: #111827;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.prt-btn-salvar-luta {
+    background: #1a56ff;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.prt-btn-salvar-luta:hover {
+    background: #003cd2;
+}
+
+.form-luta-titulo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px dashed #fcd34d;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+}
+
+.form-luta-titulo select {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.btn-remover-categoria-ufc {
+    background: none;
+    border: none;
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+    margin-bottom: 8px;
+}
+
+.btn-remover-categoria-ufc:hover {
+    text-decoration: underline;
+}
+
+.badge-titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.prt-btn-remover-luta {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.prt-btn-remover-luta:hover {
+    color: #dc2626;
+}
+
+/* --- UFC: cards (eventos) --- */
+
+.form-criar-card {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.form-criar-card .input-nome-card {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.card-ufc {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 18px;
+}
+
+.card-ufc-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.card-ufc-topo h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #111827;
+}
+
+.card-ufc-vazio {
+    color: #6b7280;
+    font-size: 13px;
+    margin: 0 0 10px 0;
+}
+
+.btn-remover-card {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.btn-remover-card:hover {
+    color: #dc2626;
+}
+
+.tag-categoria {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.numero-confronto {
+    color: #1a56ff;
+    font-weight: 800;
+}

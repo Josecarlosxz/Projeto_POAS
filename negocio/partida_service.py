@@ -5,7 +5,7 @@ from typing import List, Optional, Dict
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from dados.models import Campeonato, Partida
+from dados.models import Campeonato, Partida, Card
 
 NOMES_GRUPOS_PADRAO = ["A", "B", "C", "D", "E", "F", "G", "H"]
 NUM_TIMES_POR_GRUPO = 4  # futebol: grupos sempre com 4 times, top 2 de cada avançam
@@ -58,6 +58,7 @@ def _serializar_partida(partida: Partida) -> dict:
         "categoria": partida.categoria,
         "metodo_vitoria": partida.metodo_vitoria,
         "vencedor_penaltis": partida.vencedor_penaltis,
+        "card_id": partida.card_id,
     }
 
 
@@ -105,6 +106,7 @@ def _gerar_partidas_rodada_unica_ou_dupla(
     fase: Optional[str] = None,
     grupo: Optional[str] = None,
     conferencia: Optional[str] = None,
+    categoria: Optional[str] = None,
 ) -> List[Partida]:
     """
     Motor genérico de rodadas: sorteia todos-contra-todos uma vez (turno) e,
@@ -132,6 +134,7 @@ def _gerar_partidas_rodada_unica_ou_dupla(
                 fase=fase,
                 grupo=grupo,
                 conferencia=conferencia,
+                categoria=categoria,
             ))
 
     if ida_volta:
@@ -146,6 +149,7 @@ def _gerar_partidas_rodada_unica_ou_dupla(
                     fase=fase,
                     grupo=grupo,
                     conferencia=conferencia,
+                    categoria=categoria,
                 ))
 
     return partidas
@@ -338,6 +342,12 @@ def gerar_partidas(session: Session, campeonato_id: int) -> List[dict]:
 
     configuracao = _obter_configuracao(campeonato)
 
+    if campeonato.esporte == "UFC":
+        raise HTTPException(
+            status_code=400,
+            detail="No UFC as lutas são marcadas manualmente, uma a uma, dentro de cada categoria"
+        )
+
     partidas_antigas = session.exec(
         select(Partida).where(Partida.campeonato_id == campeonato_id)
     ).all()
@@ -373,7 +383,7 @@ def gerar_partidas(session: Session, campeonato_id: int) -> List[dict]:
             )
 
     else:
-        # esportes ainda não configuráveis (UFC, NFL, F1) - comportamento padrão por enquanto
+        # esportes ainda não configuráveis (NFL, F1) - comportamento padrão por enquanto
         novas_partidas = _gerar_partidas_rodada_unica_ou_dupla(times, campeonato_id, True)
 
     session.add_all(novas_partidas)
@@ -419,6 +429,208 @@ def atualizar_resultado(
     session.refresh(partida)
 
     return _serializar_partida(partida)
+
+
+METODOS_VITORIA_VALIDOS = {"KO", "TKO", "SUB", "DEC"}
+
+
+def atualizar_resultado_luta(session: Session, partida_id: int, vencedor: str, metodo: str) -> Optional[dict]:
+    """UFC: registra o vencedor e o método (KO/TKO/SUB/DEC) de uma luta."""
+    partida = session.get(Partida, partida_id)
+    if not partida:
+        return None
+
+    if vencedor not in (partida.time_casa, partida.time_visitante):
+        raise HTTPException(status_code=400, detail="O vencedor precisa ser um dos dois lutadores da luta")
+    if metodo not in METODOS_VITORIA_VALIDOS:
+        raise HTTPException(status_code=400, detail="Método de vitória inválido (use KO, TKO, SUB ou DEC)")
+
+    partida.gols_casa = 1 if vencedor == partida.time_casa else 0
+    partida.gols_visitante = 1 if vencedor == partida.time_visitante else 0
+    partida.metodo_vitoria = metodo
+    partida.finalizada = True
+
+    session.add(partida)
+    session.commit()
+    session.refresh(partida)
+
+    return _serializar_partida(partida)
+
+
+def _serializar_card(card: Card) -> dict:
+    return {"id": card.id, "campeonato_id": card.campeonato_id, "nome": card.nome}
+
+
+def _obter_campeonato_ufc(session: Session, campeonato_id: int) -> Campeonato:
+    campeonato = session.get(Campeonato, campeonato_id)
+    if not campeonato:
+        raise HTTPException(status_code=404, detail="Campeonato não encontrado")
+    if campeonato.esporte != "UFC":
+        raise HTTPException(status_code=400, detail="Cards só existem em campeonatos de UFC")
+    return campeonato
+
+
+def listar_cards(session: Session, campeonato_id: int) -> List[dict]:
+    cards = session.exec(
+        select(Card).where(Card.campeonato_id == campeonato_id).order_by(Card.id)
+    ).all()
+    return [_serializar_card(c) for c in cards]
+
+
+def criar_card(session: Session, campeonato_id: int, nome: str) -> dict:
+    """UFC: cria um card (evento) com o nome escolhido pelo usuário. As lutas são adicionadas dentro dele."""
+    _obter_campeonato_ufc(session, campeonato_id)
+
+    nome = (nome or "").strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Dê um nome ao card")
+
+    existentes = session.exec(select(Card).where(Card.campeonato_id == campeonato_id)).all()
+    if any(c.nome.lower() == nome.lower() for c in existentes):
+        raise HTTPException(status_code=400, detail=f"Já existe um card chamado '{nome}' nesse campeonato")
+
+    card = Card(campeonato_id=campeonato_id, nome=nome)
+    session.add(card)
+    session.commit()
+    session.refresh(card)
+    return _serializar_card(card)
+
+
+def remover_card(session: Session, card_id: int) -> dict:
+    """UFC: remove o card e as lutas pendentes dele (só se nenhuma luta do card tiver resultado)."""
+    card = session.get(Card, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card não encontrado")
+    _obter_campeonato_ufc(session, card.campeonato_id)
+
+    lutas = session.exec(select(Partida).where(Partida.card_id == card_id)).all()
+    if any(l.finalizada for l in lutas):
+        raise HTTPException(status_code=400, detail="Não é possível remover um card que já tem lutas com resultado")
+
+    for luta in lutas:
+        session.delete(luta)
+    session.delete(card)
+    session.commit()
+    return {"removido": True}
+
+
+def criar_luta(
+    session: Session,
+    card_id: int,
+    categoria: str,
+    lutador_casa: str,
+    lutador_visitante: str,
+    titulo: bool = False,
+) -> dict:
+    """UFC: adiciona uma luta (normal ou pelo cinturão) a um card, escolhendo os dois lutadores."""
+    card = session.get(Card, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card não encontrado")
+    campeonato = _obter_campeonato_ufc(session, card.campeonato_id)
+    campeonato_id = campeonato.id
+
+    configuracao = _obter_configuracao(campeonato)
+    lutadores_validos = configuracao.get("categorias", {}).get(categoria)
+    if lutadores_validos is None:
+        raise HTTPException(status_code=400, detail=f"Categoria '{categoria}' não encontrada nesse campeonato")
+
+    if lutador_casa == lutador_visitante:
+        raise HTTPException(status_code=400, detail="Escolha dois lutadores diferentes")
+    if lutador_casa not in lutadores_validos or lutador_visitante not in lutadores_validos:
+        raise HTTPException(status_code=400, detail="Os dois lutadores precisam pertencer à categoria escolhida")
+
+    # um lutador não luta duas vezes no mesmo card
+    lutas_do_card = session.exec(select(Partida).where(Partida.card_id == card_id)).all()
+    ocupados = {l.time_casa for l in lutas_do_card} | {l.time_visitante for l in lutas_do_card}
+    for lutador in (lutador_casa, lutador_visitante):
+        if lutador in ocupados:
+            raise HTTPException(status_code=400, detail=f"{lutador} já tem luta nesse card")
+
+    if titulo:
+        luta_titulo_pendente = session.exec(
+            select(Partida).where(
+                Partida.campeonato_id == campeonato_id,
+                Partida.categoria == categoria,
+                Partida.fase == "titulo",
+                Partida.finalizada == False,  # noqa: E712
+            )
+        ).first()
+        if luta_titulo_pendente:
+            raise HTTPException(
+                status_code=400,
+                detail="Já existe uma luta de título pendente nessa categoria. Registre o resultado antes de marcar outra."
+            )
+
+    # rodada = id do card: mantém a ordem cronológica dos cards (usada pra achar o campeão mais recente)
+    nova_luta = Partida(
+        campeonato_id=campeonato_id, rodada=card.id, turno=1,
+        time_casa=lutador_casa, time_visitante=lutador_visitante,
+        fase="titulo" if titulo else None,
+        categoria=categoria,
+        etapa="Luta pelo Cinturão" if titulo else None,
+        card_id=card.id,
+    )
+    session.add(nova_luta)
+    session.commit()
+    session.refresh(nova_luta)
+
+    return _serializar_partida(nova_luta)
+
+
+def remover_luta(session: Session, partida_id: int) -> dict:
+    """UFC: desfaz uma luta marcada por engano (só enquanto ainda não tem resultado)."""
+    partida = session.get(Partida, partida_id)
+    if not partida:
+        raise HTTPException(status_code=404, detail="Luta não encontrada")
+
+    campeonato = session.get(Campeonato, partida.campeonato_id)
+    if not campeonato or campeonato.esporte != "UFC":
+        raise HTTPException(status_code=400, detail="Só é possível remover lutas de campeonatos de UFC")
+    if partida.finalizada:
+        raise HTTPException(status_code=400, detail="Não é possível remover uma luta que já tem resultado")
+
+    session.delete(partida)
+    session.commit()
+    return {"removida": True}
+
+
+def _calcular_situacao_titulo(lutas_titulo_em_ordem: List[Partida]) -> tuple:
+    """
+    Percorre as lutas de título já finalizadas (da mais antiga pra mais recente) e devolve
+    (campeão atual, ex-campeão). O ex-campeão é quem acabou de perder o cinturão: ele volta
+    ao ranking como número 1. Defesa de título bem-sucedida não muda nada.
+    """
+    campeao: Optional[str] = None
+    ex_campeao: Optional[str] = None
+    for luta in lutas_titulo_em_ordem:
+        vencedor = _vencedor_partida(luta)
+        if campeao is not None and vencedor != campeao:
+            ex_campeao = campeao
+        campeao = vencedor
+    return campeao, ex_campeao
+
+
+def _situacao_titulo_categoria(session: Session, campeonato_id: int, categoria: str) -> tuple:
+    lutas_titulo = session.exec(
+        select(Partida).where(
+            Partida.campeonato_id == campeonato_id,
+            Partida.categoria == categoria,
+            Partida.fase == "titulo",
+            Partida.finalizada == True,  # noqa: E712
+        ).order_by(Partida.rodada, Partida.id)
+    ).all()
+    return _calcular_situacao_titulo(lutas_titulo)
+
+
+def _montar_ranking(tabela: List[dict], campeao: Optional[str], ex_campeao: Optional[str]) -> List[dict]:
+    """
+    Ranking dos desafiantes: o campeão sai da lista (quem era 2º sobe pra 1º) e o ex-campeão,
+    se houver, volta como número 1. Os demais seguem a ordem de vitórias da tabela.
+    """
+    ranking = [linha for linha in tabela if linha["time"] != campeao]
+    if ex_campeao is not None:
+        ranking.sort(key=lambda linha: linha["time"] != ex_campeao)  # sort estável: só puxa o ex-campeão pro topo
+    return ranking
 
 
 # ----------------------------------------------------------------------
@@ -473,6 +685,27 @@ def calcular_classificacao(session: Session, campeonato_id: int) -> dict:
             resultado_conf[nome_conf] = _calcular_tabela_basquete(times_da_conf, finalizadas)
 
         return {"formato": "conferencias", "conferencias": resultado_conf}
+
+    if campeonato.esporte == "UFC":
+        categorias_dict = configuracao.get("categorias", {})
+
+        # Todas as lutas finalizadas entram na tabela (normais e de cinturão): quem perde o
+        # cinturão também ganha a derrota, e quem o conquista ganha a vitória.
+        todas_as_lutas = session.exec(
+            select(Partida).where(Partida.campeonato_id == campeonato_id)
+        ).all()
+
+        resultado_categorias = {}
+        for nome_categoria, lutadores in categorias_dict.items():
+            finalizadas = [p for p in todas_as_lutas if p.categoria == nome_categoria and p.finalizada]
+            campeao, ex_campeao = _situacao_titulo_categoria(session, campeonato_id, nome_categoria)
+            tabela = _calcular_tabela_basquete(lutadores, finalizadas)
+            resultado_categorias[nome_categoria] = {
+                "tabela": _montar_ranking(tabela, campeao, ex_campeao),
+                "campeao": campeao,
+            }
+
+        return {"formato": "categorias", "categorias": resultado_categorias}
 
     # esportes ainda não configuráveis - fallback antigo
     partidas = session.exec(

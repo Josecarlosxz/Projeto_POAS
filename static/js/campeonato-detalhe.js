@@ -1,6 +1,8 @@
 let campeonatoAtual = null;
 let classificacaoCache = null;
 let partidasCache = [];
+let cardsCache = [];
+let numerosConfrontoUfc = new Map(); // id da luta -> nº do confronto (1ª vez, 2ª vez...)
 let abaSelecionada = null;
 
 document.addEventListener("DOMContentLoaded", async function () {
@@ -27,11 +29,14 @@ function modoExibicao() {
         const numConferencias = Object.keys(config.conferencias || {}).length;
         return numConferencias >= 2 ? "basquete_conferencias" : "basquete_unica";
     }
+    if (esporte === "UFC") {
+        return "ufc_categorias";
+    }
     return "generico";
 }
 
 function temAbas(modo) {
-    return modo === "futebol_grupos" || modo === "basquete_conferencias";
+    return modo === "futebol_grupos" || modo === "basquete_conferencias" || modo === "ufc_categorias";
 }
 
 function temPlayoffs(modo) {
@@ -39,7 +44,15 @@ function temPlayoffs(modo) {
 }
 
 function rotuloAba(nome) {
-    return campeonatoAtual.esporte === "Basquete" ? `Conferência ${nome}` : `Grupo ${nome}`;
+    if (campeonatoAtual.esporte === "Basquete") return `Conferência ${nome}`;
+    if (campeonatoAtual.esporte === "UFC") return nome;
+    return `Grupo ${nome}`;
+}
+
+function chaveGrupoDoModo(modo) {
+    if (modo === "futebol_grupos") return "grupos";
+    if (modo === "ufc_categorias") return "categorias";
+    return "conferencias";
 }
 
 async function carregarDetalheCampeonato(container, campeonatoId) {
@@ -81,9 +94,11 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
                 <div class="secao-titulo">
                     <h2>Partidas</h2>
                     <div class="acoes-partidas">
-                        <button id="btn-gerar-partidas" class="btn-gerar-partidas">
-                            <i class="fa-solid fa-shuffle"></i> ${rotulosSortear[modo]}
-                        </button>
+                        ${modo === "ufc_categorias" ? "" : `
+                            <button id="btn-gerar-partidas" class="btn-gerar-partidas">
+                                <i class="fa-solid fa-shuffle"></i> ${rotulosSortear[modo]}
+                            </button>
+                        `}
                         ${comPlayoffs ? `
                             <button id="btn-gerar-playoffs" class="btn-gerar-partidas">
                                 <i class="fa-solid fa-trophy"></i> Gerar Playoffs
@@ -98,7 +113,8 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
             </div>
         `;
 
-        document.getElementById("btn-gerar-partidas").addEventListener("click", async () => {
+        const btnGerarPartidas = document.getElementById("btn-gerar-partidas");
+        if (btnGerarPartidas) btnGerarPartidas.addEventListener("click", async () => {
             const confirmar = confirm(
                 comPlayoffs
                     ? "Isso vai sortear a temporada e apagar todas as partidas (incluindo playoffs) desse campeonato. Continuar?"
@@ -190,7 +206,7 @@ async function carregarClassificacao(campeonatoId) {
         const modo = modoExibicao();
 
         if (temAbas(modo)) {
-            const chaveGrupo = modo === "futebol_grupos" ? "grupos" : "conferencias";
+            const chaveGrupo = chaveGrupoDoModo(modo);
             renderizarAbas(campeonatoId, classificacaoCache[chaveGrupo] || {});
             const nomes = Object.keys(classificacaoCache[chaveGrupo] || {}).sort();
             if (!abaSelecionada || !nomes.includes(abaSelecionada)) {
@@ -229,15 +245,32 @@ function renderizarAbas(campeonatoId, grupos) {
         botao.addEventListener("click", () => {
             abaSelecionada = botao.dataset.aba;
             const modo = modoExibicao();
-            const chaveGrupo = modo === "futebol_grupos" ? "grupos" : "conferencias";
+            const chaveGrupo = chaveGrupoDoModo(modo);
             renderizarAbas(campeonatoId, classificacaoCache[chaveGrupo] || {});
             renderizarClassificacaoDaAba(document.getElementById("classificacao-wrap"), chaveGrupo);
-            renderizarPartidas(document.getElementById("partidas-wrap"), campeonatoId, partidasCache);
+            // No UFC os cards mostram lutas de todas as categorias; a aba só muda a tabela.
+            if (modo !== "ufc_categorias") {
+                renderizarPartidas(document.getElementById("partidas-wrap"), campeonatoId, partidasCache);
+            }
         });
     });
 }
 
 function renderizarClassificacaoDaAba(wrap, chaveGrupo) {
+    if (chaveGrupo === "categorias") {
+        const dadosCategoria = classificacaoCache?.categorias?.[abaSelecionada];
+        if (!abaSelecionada || !dadosCategoria) {
+            wrap.innerHTML = "<p>Nenhum lutador cadastrado.</p>";
+            return;
+        }
+        const faixaCampeao = dadosCategoria.campeao
+            ? `<div class="faixa-campeao"><i class="fa-solid fa-trophy"></i> Campeão: <strong>${dadosCategoria.campeao}</strong></div>`
+            : `<div class="faixa-campeao faixa-campeao--vazia">Categoria ainda sem campeão.</div>`;
+        renderizarTabela(wrap, dadosCategoria.tabela);
+        wrap.insertAdjacentHTML("afterbegin", faixaCampeao);
+        return;
+    }
+
     const tabela = classificacaoCache?.[chaveGrupo]?.[abaSelecionada];
     if (!abaSelecionada || !tabela) {
         wrap.innerHTML = "<p>Sorteie a temporada para ver a classificação.</p>";
@@ -246,9 +279,10 @@ function renderizarClassificacaoDaAba(wrap, chaveGrupo) {
     renderizarTabela(wrap, tabela);
 }
 
-// Escolhe as colunas certas (futebol x basquete) e delega pro renderizador.
+// Escolhe as colunas certas (futebol x vitórias) e delega pro renderizador.
+// Basquete e UFC usam a mesma tabela por vitórias (sem empate possível).
 function renderizarTabela(wrap, classificacao) {
-    if (campeonatoAtual?.esporte === "Basquete") {
+    if (campeonatoAtual?.esporte === "Basquete" || campeonatoAtual?.esporte === "UFC") {
         renderizarClassificacaoBasquete(wrap, classificacao);
     } else {
         renderizarClassificacaoFutebol(wrap, classificacao);
@@ -370,6 +404,13 @@ async function carregarPartidas(campeonatoId) {
         if (!resposta.ok) throw new Error("Erro ao buscar partidas");
 
         partidasCache = await resposta.json();
+
+        if (modoExibicao() === "ufc_categorias") {
+            const respostaCards = await fetch(`/api/campeonatos/${campeonatoId}/cards`);
+            if (!respostaCards.ok) throw new Error("Erro ao buscar cards");
+            cardsCache = await respostaCards.json();
+        }
+
         renderizarPartidas(wrap, campeonatoId, partidasCache);
 
     } catch (erro) {
@@ -405,12 +446,20 @@ function linhaPartidaHtml(partida, permitirPenaltis) {
 }
 
 function renderizarPartidas(wrap, campeonatoId, partidas) {
-    if (!partidas.length) {
+    const modo = modoExibicao();
+
+    // UFC sempre renderiza (mesmo com 0 lutas sorteadas), porque o formulário
+    // de luta de título precisa aparecer independente disso.
+    if (!partidas.length && modo !== "ufc_categorias") {
         wrap.innerHTML = "<p>Nenhuma partida sorteada ainda.</p>";
         return;
     }
 
-    const modo = modoExibicao();
+    if (modo === "ufc_categorias") {
+        renderizarPartidasUFC(wrap, campeonatoId, partidas);
+        return;
+    }
+
     const permitePenaltisNosPlayoffs = campeonatoAtual.esporte === "Futebol";
 
     if (modo === "futebol_grupos") {
@@ -523,6 +572,270 @@ function renderizarBlocoPorEtapa(partidas, permitirPenaltis) {
             </div>
         `;
     }).join("");
+}
+
+// --- UFC: cards (eventos) criados pelo usuário; as lutas são adicionadas dentro de cada card ---
+
+function escaparHtml(texto) {
+    return String(texto).replace(/[&<>"']/g, c => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+    ));
+}
+
+async function chamarApiUfc(url, opcoes, mensagemPadrao) {
+    const resposta = await fetch(url, opcoes);
+    if (!resposta.ok) {
+        const erro = await resposta.json().catch(() => null);
+        throw new Error(erro?.detail || mensagemPadrao);
+    }
+    return resposta.json();
+}
+
+// Mesmo confronto (mesmos dois lutadores, em qualquer ordem) em cards diferentes ganha número:
+// 1ª vez sem número, depois 2, 3... seguindo a ordem dos cards.
+function calcularNumerosConfronto(lutas) {
+    const ordenadas = [...lutas].sort((a, b) => ((a.card_id ?? 0) - (b.card_id ?? 0)) || (a.id - b.id));
+    const contagem = new Map();
+    const numeros = new Map();
+
+    ordenadas.forEach(luta => {
+        const chave = [luta.time_casa, luta.time_visitante].map(n => n.toLowerCase()).sort().join("||");
+        const numero = (contagem.get(chave) || 0) + 1;
+        contagem.set(chave, numero);
+        numeros.set(luta.id, numero);
+    });
+
+    return numeros;
+}
+
+function linhaLutaHtml(partida) {
+    const ehTitulo = partida.fase === "titulo";
+    const numeroConfronto = numerosConfrontoUfc.get(partida.id) || 1;
+    const metodos = ["KO", "TKO", "SUB", "DEC"];
+    const opcoesVencedor = `
+        <option value="">Vencedor</option>
+        <option value="${partida.time_casa}" ${partida.finalizada && partida.gols_casa === 1 ? "selected" : ""}>${partida.time_casa}</option>
+        <option value="${partida.time_visitante}" ${partida.finalizada && partida.gols_visitante === 1 ? "selected" : ""}>${partida.time_visitante}</option>
+    `;
+    const opcoesMetodo = `<option value="">Método</option>` + metodos.map(m =>
+        `<option value="${m}" ${partida.metodo_vitoria === m ? "selected" : ""}>${m}</option>`
+    ).join("");
+
+    return `
+        <div class="prt-linha prt-linha--luta ${partida.finalizada ? "prt-linha--finalizada" : ""}" data-partida-id="${partida.id}">
+            <span class="tag-categoria">${escaparHtml(partida.categoria || "")}</span>
+            ${ehTitulo ? `<span class="badge-titulo"><i class="fa-solid fa-trophy"></i> Cinturão</span>` : ""}
+            <span class="prt-time prt-time--casa">${partida.time_casa}</span>
+            <span>vs</span>
+            <span class="prt-time prt-time--visitante">${partida.time_visitante}${numeroConfronto > 1 ? ` <span class="numero-confronto">${numeroConfronto}</span>` : ""}</span>
+            <select class="prt-select-vencedor">${opcoesVencedor}</select>
+            <select class="prt-select-metodo">${opcoesMetodo}</select>
+            <button class="prt-btn-salvar-luta">Salvar</button>
+            ${partida.finalizada ? "" : `<button class="prt-btn-remover-luta" title="Remover luta">&times;</button>`}
+        </div>
+    `;
+}
+
+function cardUfcHtml(card, lutas) {
+    const categorias = Object.keys(campeonatoAtual.configuracao?.categorias || {});
+    const opcoesCategoria = categorias.map(c => `<option value="${escaparHtml(c)}">${escaparHtml(c)}</option>`).join("");
+
+    return `
+        <div class="card-ufc" data-card-id="${card.id}">
+            <div class="card-ufc-topo">
+                <h3>${escaparHtml(card.nome)}</h3>
+                <button type="button" class="btn-remover-card" title="Remover card">&times;</button>
+            </div>
+
+            ${lutas.map(linhaLutaHtml).join("") || `<p class="card-ufc-vazio">Nenhuma luta nesse card ainda.</p>`}
+
+            <div class="form-luta-titulo form-adicionar-luta">
+                <select class="select-luta-categoria">${opcoesCategoria}</select>
+                <select class="select-luta-lutador-1"></select>
+                <span>vs</span>
+                <select class="select-luta-lutador-2"></select>
+                <select class="select-luta-tipo">
+                    <option value="normal">Luta normal</option>
+                    <option value="titulo">Luta pelo cinturão</option>
+                </select>
+                <button type="button" class="btn-gerar-partidas btn-adicionar-luta">
+                    <i class="fa-solid fa-plus"></i> Adicionar luta
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function preencherLutadoresDoForm(form) {
+    const categoria = form.querySelector(".select-luta-categoria").value;
+    const lutadores = campeonatoAtual.configuracao?.categorias?.[categoria] || [];
+    const opcoes = lutadores.map(l => `<option value="${escaparHtml(l)}">${escaparHtml(l)}</option>`).join("");
+
+    const select1 = form.querySelector(".select-luta-lutador-1");
+    const select2 = form.querySelector(".select-luta-lutador-2");
+    select1.innerHTML = opcoes;
+    select2.innerHTML = opcoes;
+    select2.selectedIndex = Math.min(1, lutadores.length - 1);
+}
+
+function renderizarPartidasUFC(wrap, campeonatoId, partidas) {
+    const lutasUfc = partidas.filter(p => p.fase === null || p.fase === "titulo");
+    numerosConfrontoUfc = calcularNumerosConfronto(lutasUfc);
+    const cardsOrdenados = [...cardsCache].sort((a, b) => b.id - a.id);
+
+    const blocosCards = cardsOrdenados.map(card => {
+        const lutasDoCard = lutasUfc.filter(p => p.card_id === card.id).sort((a, b) => a.id - b.id);
+        return cardUfcHtml(card, lutasDoCard);
+    }).join("");
+
+    // Lutas marcadas antes do sistema de cards existir
+    const lutasSemCard = lutasUfc.filter(p => p.card_id === null || p.card_id === undefined).sort((a, b) => a.id - b.id);
+    const blocoSemCard = lutasSemCard.length ? `
+        <div class="card-ufc">
+            <div class="card-ufc-topo"><h3>Lutas sem card</h3></div>
+            ${lutasSemCard.map(linhaLutaHtml).join("")}
+        </div>
+    ` : "";
+
+    wrap.innerHTML = `
+        <div class="prt-lista">
+            <div class="form-criar-card">
+                <input type="text" class="input-nome-card" maxlength="80" placeholder="Nome do card (ex: UFC 300)">
+                <button type="button" class="btn-gerar-partidas btn-criar-card">
+                    <i class="fa-solid fa-plus"></i> Criar card
+                </button>
+            </div>
+            ${blocosCards || "<p>Nenhum card criado ainda. Crie o primeiro para começar a marcar lutas.</p>"}
+            ${blocoSemCard}
+        </div>
+    `;
+
+    ativarBotoesSalvarLutas(wrap, campeonatoId);
+
+    // Criar card
+    const inputNomeCard = wrap.querySelector(".input-nome-card");
+    const criarCard = async () => {
+        const nome = inputNomeCard.value.trim();
+        if (!nome) {
+            alert("Dê um nome ao card.");
+            return;
+        }
+        try {
+            await chamarApiUfc(`/api/campeonatos/${campeonatoId}/cards`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nome })
+            }, "Erro ao criar o card");
+            await carregarPartidas(campeonatoId);
+        } catch (erro) {
+            console.error(erro);
+            alert(erro.message);
+        }
+    };
+    wrap.querySelector(".btn-criar-card").addEventListener("click", criarCard);
+    inputNomeCard.addEventListener("keydown", (evento) => {
+        if (evento.key === "Enter") {
+            evento.preventDefault();
+            criarCard();
+        }
+    });
+
+    wrap.querySelectorAll(".card-ufc[data-card-id]").forEach(blocoCard => {
+        const cardId = blocoCard.dataset.cardId;
+
+        // Remover card
+        blocoCard.querySelector(".btn-remover-card").addEventListener("click", async () => {
+            if (!confirm("Remover esse card e as lutas dele que ainda não têm resultado?")) return;
+            try {
+                await chamarApiUfc(`/api/cards/${cardId}`, { method: "DELETE" }, "Erro ao remover o card");
+                await carregarPartidas(campeonatoId);
+            } catch (erro) {
+                console.error(erro);
+                alert(erro.message);
+            }
+        });
+
+        // Adicionar luta ao card
+        const form = blocoCard.querySelector(".form-adicionar-luta");
+        preencherLutadoresDoForm(form);
+        form.querySelector(".select-luta-categoria").addEventListener("change", () => preencherLutadoresDoForm(form));
+
+        form.querySelector(".btn-adicionar-luta").addEventListener("click", async () => {
+            const categoria = form.querySelector(".select-luta-categoria").value;
+            const lutador1 = form.querySelector(".select-luta-lutador-1").value;
+            const lutador2 = form.querySelector(".select-luta-lutador-2").value;
+            const titulo = form.querySelector(".select-luta-tipo").value === "titulo";
+
+            if (!lutador1 || !lutador2 || lutador1 === lutador2) {
+                alert("Escolha dois lutadores diferentes.");
+                return;
+            }
+
+            try {
+                await chamarApiUfc(`/api/cards/${cardId}/lutas`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ categoria, lutador_casa: lutador1, lutador_visitante: lutador2, titulo })
+                }, "Erro ao adicionar a luta");
+                await carregarPartidas(campeonatoId);
+            } catch (erro) {
+                console.error(erro);
+                alert(erro.message);
+            }
+        });
+    });
+
+    // Remover luta ainda sem resultado
+    wrap.querySelectorAll(".prt-btn-remover-luta").forEach(botao => {
+        botao.addEventListener("click", async (evento) => {
+            const linha = evento.target.closest(".prt-linha");
+            if (!confirm("Remover essa luta?")) return;
+            try {
+                await chamarApiUfc(`/api/lutas/${linha.dataset.partidaId}`, { method: "DELETE" }, "Erro ao remover a luta");
+                await carregarPartidas(campeonatoId);
+            } catch (erro) {
+                console.error(erro);
+                alert(erro.message);
+            }
+        });
+    });
+}
+
+function ativarBotoesSalvarLutas(wrap, campeonatoId) {
+    wrap.querySelectorAll(".prt-btn-salvar-luta").forEach(botao => {
+        botao.addEventListener("click", async (evento) => {
+            const linha = evento.target.closest(".prt-linha");
+            const partidaId = linha.dataset.partidaId;
+            const vencedor = linha.querySelector(".prt-select-vencedor").value;
+            const metodo = linha.querySelector(".prt-select-metodo").value;
+
+            if (!vencedor || !metodo) {
+                alert("Escolha o vencedor e o método da luta.");
+                return;
+            }
+
+            try {
+                const resposta = await fetch(`/api/partidas/${partidaId}/resultado-luta`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ vencedor, metodo })
+                });
+
+                if (!resposta.ok) {
+                    const erro = await resposta.json().catch(() => null);
+                    throw new Error(erro?.detail || "Erro ao salvar o resultado da luta");
+                }
+
+                linha.classList.add("prt-linha--finalizada");
+                await carregarClassificacao(campeonatoId);
+                await carregarPartidas(campeonatoId);
+
+            } catch (erro) {
+                console.error(erro);
+                alert(erro.message || "Erro ao salvar o resultado. Tente novamente.");
+            }
+        });
+    });
 }
 
 function ativarBotoesSalvar(wrap, campeonatoId) {

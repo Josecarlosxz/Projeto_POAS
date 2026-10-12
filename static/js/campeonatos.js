@@ -33,14 +33,15 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // A seção genérica de times (usada por Futebol, UFC, NFL, F1, Outro) some
-    // quando o esporte é Basquete, que define os times dentro de cada conferência.
+    // A seção genérica de times (usada por Futebol, NFL, F1, Outro) some quando
+    // o esporte já define os times de outro jeito (Basquete por conferência,
+    // UFC por categoria).
     function atualizarVisibilidadeSecaoTimesPadrao(esporte) {
-        const ehBasquete = esporte === "Basquete";
-        secaoTimesPadrao.classList.toggle("hidden", ehBasquete);
-        inputQuantidade.required = !ehBasquete;
+        const temTimesProprios = esporte === "Basquete" || esporte === "UFC";
+        secaoTimesPadrao.classList.toggle("hidden", temTimesProprios);
+        inputQuantidade.required = !temTimesProprios;
         listaInputsTimes.querySelectorAll(".input-time").forEach(input => {
-            input.required = !ehBasquete;
+            input.required = !temTimesProprios;
         });
     }
 
@@ -150,6 +151,21 @@ document.addEventListener("DOMContentLoaded", function () {
             });
             atualizarConferencia2();
 
+        } else if (esporte === "UFC") {
+            opcoesEspecificas.innerHTML = `
+                <div id="lista-categorias-ufc"></div>
+                <button type="button" id="btn-add-categoria-ufc" class="btn-gerar-partidas">
+                    <i class="fa-solid fa-plus"></i> Adicionar categoria
+                </button>
+            `;
+
+            const listaCategorias = document.getElementById("lista-categorias-ufc");
+            listaCategorias.appendChild(criarBlocoCategoriaUFC());
+
+            document.getElementById("btn-add-categoria-ufc").addEventListener("click", () => {
+                listaCategorias.appendChild(criarBlocoCategoriaUFC());
+            });
+
         } else {
             opcoesEspecificas.innerHTML = "";
         }
@@ -159,6 +175,62 @@ document.addEventListener("DOMContentLoaded", function () {
         return Array.from(document.querySelectorAll(`#${containerId} .input-time-conferencia`))
             .map(input => input.value.trim())
             .filter(Boolean);
+    }
+
+    // --- UFC: blocos de categoria (nome + lutadores), com quantas o usuário quiser ---
+
+    function gerarInputsLutadores(container, quantidade, rotulo) {
+        container.innerHTML = "";
+        for (let i = 1; i <= quantidade; i++) {
+            container.innerHTML += `
+                <div class="form-group">
+                    <label>${rotulo} — Lutador ${i}</label>
+                    <input type="text" class="input-lutador-ufc" placeholder="Nome do lutador ${i}" required>
+                </div>
+            `;
+        }
+    }
+
+    function criarBlocoCategoriaUFC() {
+        const bloco = document.createElement("div");
+        bloco.className = "bloco-conferencia bloco-categoria-ufc";
+        bloco.innerHTML = `
+            <div class="form-group">
+                <label>Nome da categoria</label>
+                <input type="text" class="input-nome-categoria-ufc" required placeholder="Ex: Peso Pena">
+            </div>
+            <div class="form-group">
+                <label>Quantidade de lutadores</label>
+                <input type="number" class="input-qtd-categoria-ufc" min="2" max="32" value="4" required>
+            </div>
+            <div class="lista-lutadores-categoria-ufc lista-inputs-times"></div>
+            <button type="button" class="btn-remover-categoria-ufc">Remover categoria</button>
+        `;
+
+        const inputNome = bloco.querySelector(".input-nome-categoria-ufc");
+        const inputQtd = bloco.querySelector(".input-qtd-categoria-ufc");
+        const listaLutadores = bloco.querySelector(".lista-lutadores-categoria-ufc");
+
+        const atualizarInputsLutadores = () => {
+            gerarInputsLutadores(listaLutadores, parseInt(inputQtd.value, 10), inputNome.value.trim() || "Categoria");
+        };
+        atualizarInputsLutadores();
+
+        inputQtd.addEventListener("input", () => {
+            inputQtd.value = limitarQuantidade(inputQtd.value);
+            atualizarInputsLutadores();
+        });
+
+        bloco.querySelector(".btn-remover-categoria-ufc").addEventListener("click", () => {
+            const listaCategorias = document.getElementById("lista-categorias-ufc");
+            if (listaCategorias.children.length <= 1) {
+                alert("É preciso ao menos uma categoria.");
+                return;
+            }
+            bloco.remove();
+        });
+
+        return bloco;
     }
 
     gerarInputsTimes(parseInt(inputQuantidade.value, 10));
@@ -232,6 +304,47 @@ document.addEventListener("DOMContentLoaded", function () {
                 conferencias,
                 turno_temporada: document.getElementById("turno-temporada-basquete").value,
             };
+
+        } else if (esporte === "UFC") {
+            const blocosCategoria = document.querySelectorAll("#lista-categorias-ufc .bloco-categoria-ufc");
+            if (blocosCategoria.length === 0) {
+                alert("Adicione ao menos uma categoria.");
+                return;
+            }
+
+            const categorias = {};
+            let todosLutadores = [];
+
+            for (const bloco of blocosCategoria) {
+                const nomeCategoria = bloco.querySelector(".input-nome-categoria-ufc").value.trim();
+                if (!nomeCategoria) {
+                    alert("Informe o nome de todas as categorias.");
+                    return;
+                }
+                if (categorias[nomeCategoria]) {
+                    alert("As categorias precisam ter nomes diferentes.");
+                    return;
+                }
+
+                const lutadores = Array.from(bloco.querySelectorAll(".input-lutador-ufc"))
+                    .map(input => input.value.trim())
+                    .filter(Boolean);
+                if (lutadores.length < 2) {
+                    alert(`A categoria "${nomeCategoria}" precisa de ao menos 2 lutadores.`);
+                    return;
+                }
+
+                categorias[nomeCategoria] = lutadores;
+                todosLutadores = todosLutadores.concat(lutadores);
+            }
+
+            if (new Set(todosLutadores).size !== todosLutadores.length) {
+                alert("Não repita o nome de um lutador em categorias diferentes.");
+                return;
+            }
+
+            times = todosLutadores;
+            configuracao = { categorias };
 
         } else {
             times = Array.from(document.querySelectorAll(".input-time"))

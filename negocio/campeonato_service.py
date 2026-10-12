@@ -17,12 +17,6 @@ TURNOS_GRUPO_VALIDOS = {"unico", "ida_volta"}
 
 
 def _validar_e_normalizar_configuracao(esporte: str, configuracao: Optional[str]) -> dict:
-    """
-    Valida a configuração específica do esporte enviada na criação do campeonato
-    e devolve um dict pronto para ser serializado. Futebol e Basquete já têm
-    configuração implementada; os demais esportes serão adicionados nas
-    próximas etapas.
-    """
     dados_configuracao: dict = {}
     if configuracao:
         try:
@@ -81,6 +75,38 @@ def _validar_e_normalizar_configuracao(esporte: str, configuracao: Optional[str]
             raise HTTPException(status_code=400, detail="Opção de rodadas da temporada inválida")
         dados_configuracao["turno_temporada"] = turno_temporada
 
+    elif esporte == "UFC":
+        categorias = dados_configuracao.get("categorias")
+        if not isinstance(categorias, dict) or not categorias:
+            raise HTTPException(status_code=400, detail="Informe ao menos uma categoria com seus lutadores")
+
+        categorias_normalizadas = {}
+        nomes_vistos = set()
+        lutadores_vistos = set()
+
+        for nome_categoria, lutadores_categoria in categorias.items():
+            nome_normalizado = (nome_categoria or "").strip()
+            if not nome_normalizado:
+                raise HTTPException(status_code=400, detail="O nome da categoria não pode ficar em branco")
+            if nome_normalizado.lower() in nomes_vistos:
+                raise HTTPException(status_code=400, detail="As categorias precisam ter nomes diferentes")
+            nomes_vistos.add(nome_normalizado.lower())
+
+            if not isinstance(lutadores_categoria, list):
+                raise HTTPException(status_code=400, detail=f"Lutadores inválidos para a categoria {nome_normalizado}")
+            lutadores_normalizados = [l.strip() for l in lutadores_categoria if l and l.strip()]
+            if len(lutadores_normalizados) < 2:
+                raise HTTPException(status_code=400, detail=f"A categoria {nome_normalizado} precisa de pelo menos 2 lutadores")
+
+            for lutador in lutadores_normalizados:
+                if lutador.lower() in lutadores_vistos:
+                    raise HTTPException(status_code=400, detail=f"O lutador '{lutador}' aparece mais de uma vez entre as categorias")
+                lutadores_vistos.add(lutador.lower())
+
+            categorias_normalizadas[nome_normalizado] = lutadores_normalizados
+
+        dados_configuracao["categorias"] = categorias_normalizadas
+
     return dados_configuracao
 
 
@@ -115,6 +141,16 @@ def criar_campeonato(
             raise HTTPException(
                 status_code=400,
                 detail="Os times informados não batem com os times distribuídos nas conferências"
+            )
+    elif esporte == "UFC":
+        dados_configuracao = _validar_e_normalizar_configuracao(esporte, configuracao)
+        lutadores_das_categorias = [
+            lutador for lutadores in dados_configuracao["categorias"].values() for lutador in lutadores
+        ]
+        if sorted(t.lower() for t in lutadores_das_categorias) != sorted(t.lower() for t in lista_times):
+            raise HTTPException(
+                status_code=400,
+                detail="Os lutadores informados não batem com os lutadores distribuídos nas categorias"
             )
     else:
         dados_configuracao = _validar_e_normalizar_configuracao(esporte, configuracao)
