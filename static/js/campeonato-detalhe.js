@@ -186,6 +186,7 @@ function iconeResultado(resultado) {
         V: { classe: "clf-icone--vitoria", icone: "fa-check" },
         E: { classe: "clf-icone--empate", icone: "fa-minus" },
         D: { classe: "clf-icone--derrota", icone: "fa-xmark" },
+        N: { classe: "clf-icone--nc", icone: "fa-ban" },
     };
     const info = mapa[resultado];
     if (!info) {
@@ -280,9 +281,11 @@ function renderizarClassificacaoDaAba(wrap, chaveGrupo) {
 }
 
 // Escolhe as colunas certas (futebol x vitórias) e delega pro renderizador.
-// Basquete e UFC usam a mesma tabela por vitórias (sem empate possível).
+// Basquete (sem empate) e UFC (com empate e NC) têm tabelas por vitórias, cada uma com suas colunas.
 function renderizarTabela(wrap, classificacao) {
-    if (campeonatoAtual?.esporte === "Basquete" || campeonatoAtual?.esporte === "UFC") {
+    if (campeonatoAtual?.esporte === "UFC") {
+        renderizarClassificacaoUFC(wrap, classificacao);
+    } else if (campeonatoAtual?.esporte === "Basquete") {
         renderizarClassificacaoBasquete(wrap, classificacao);
     } else {
         renderizarClassificacaoFutebol(wrap, classificacao);
@@ -334,6 +337,54 @@ function renderizarClassificacaoFutebol(wrap, classificacao) {
                         <th>GM</th>
                         <th>GC</th>
                         <th>SG</th>
+                        <th class="clf-td-ultimas">Últimas 5</th>
+                    </tr>
+                </thead>
+                <tbody>${linhas}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderizarClassificacaoUFC(wrap, classificacao) {
+    if (!classificacao || !classificacao.length) {
+        wrap.innerHTML = "<p>Nenhum lutador no ranking.</p>";
+        return;
+    }
+
+    const linhas = classificacao.map((lutador, index) => {
+        const ultimos5 = [...lutador.ultimos_5];
+        while (ultimos5.length < 5) ultimos5.unshift(null);
+        const iconesHtml = ultimos5.map(resultado => iconeResultado(resultado)).join("");
+
+        return `
+            <tr>
+                <td class="clf-td-pos">${index + 1}</td>
+                <td class="clf-td-nome">${lutador.time}</td>
+                <td class="clf-td-pts">${lutador.vitorias}</td>
+                <td>${lutador.derrotas}</td>
+                <td>${lutador.empates}</td>
+                <td>${lutador.nc}</td>
+                <td>${lutador.jogos}</td>
+                <td class="clf-td-ultimas">
+                    <div class="clf-icones">${iconesHtml}</div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    wrap.innerHTML = `
+        <div class="clf-wrap">
+            <table class="clf-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th class="clf-th-esquerda">Lutador</th>
+                        <th>V</th>
+                        <th>D</th>
+                        <th>E</th>
+                        <th>NC</th>
+                        <th>J</th>
                         <th class="clf-td-ultimas">Últimas 5</th>
                     </tr>
                 </thead>
@@ -611,14 +662,17 @@ function calcularNumerosConfronto(lutas) {
 function linhaLutaHtml(partida) {
     const ehTitulo = partida.fase === "titulo";
     const numeroConfronto = numerosConfrontoUfc.get(partida.id) || 1;
-    const metodos = ["KO", "TKO", "SUB", "DEC"];
+    const metodos = [["KO", "KO"], ["TKO", "TKO"], ["SUB", "SUB"], ["DEC", "DEC"], ["DQ", "DQ"]];
     const opcoesVencedor = `
         <option value="">Vencedor</option>
         <option value="${partida.time_casa}" ${partida.finalizada && partida.gols_casa === 1 ? "selected" : ""}>${partida.time_casa}</option>
         <option value="${partida.time_visitante}" ${partida.finalizada && partida.gols_visitante === 1 ? "selected" : ""}>${partida.time_visitante}</option>
+        <option value="__empate__" ${partida.metodo_vitoria === "EMPATE" ? "selected" : ""}>Empate</option>
+        <option value="__nc__" ${partida.metodo_vitoria === "NC" ? "selected" : ""}>NC (sem resultado)</option>
     `;
-    const opcoesMetodo = `<option value="">Método</option>` + metodos.map(m =>
-        `<option value="${m}" ${partida.metodo_vitoria === m ? "selected" : ""}>${m}</option>`
+    const semVencedor = partida.metodo_vitoria === "EMPATE" || partida.metodo_vitoria === "NC";
+    const opcoesMetodo = `<option value="">Método</option>` + metodos.map(([valor, rotulo]) =>
+        `<option value="${valor}" ${partida.metodo_vitoria === valor ? "selected" : ""}>${rotulo}</option>`
     ).join("");
 
     return `
@@ -629,7 +683,8 @@ function linhaLutaHtml(partida) {
             <span>vs</span>
             <span class="prt-time prt-time--visitante">${partida.time_visitante}${numeroConfronto > 1 ? ` <span class="numero-confronto">${numeroConfronto}</span>` : ""}</span>
             <select class="prt-select-vencedor">${opcoesVencedor}</select>
-            <select class="prt-select-metodo">${opcoesMetodo}</select>
+            <select class="prt-select-metodo" ${semVencedor ? "disabled" : ""}>${opcoesMetodo}</select>
+            <span class="prt-dq-info" hidden></span>
             <button class="prt-btn-salvar-luta">Salvar</button>
             ${partida.finalizada ? "" : `<button class="prt-btn-remover-luta" title="Remover luta">&times;</button>`}
         </div>
@@ -802,15 +857,53 @@ function renderizarPartidasUFC(wrap, campeonatoId, partidas) {
 }
 
 function ativarBotoesSalvarLutas(wrap, campeonatoId) {
+    // Empate/NC não têm método de vitória: desabilita o campo de método quando escolhidos.
+    // DQ: mostra o nome do adversário do vencedor (o desclassificado).
+    wrap.querySelectorAll(".prt-linha--luta").forEach(linha => {
+        const selectVencedor = linha.querySelector(".prt-select-vencedor");
+        const selectMetodo = linha.querySelector(".prt-select-metodo");
+        const infoDq = linha.querySelector(".prt-dq-info");
+        if (!selectVencedor || !selectMetodo) return;
+
+        const nomeCasa = linha.querySelector(".prt-time--casa").childNodes[0].textContent.trim();
+        const nomeVisitante = linha.querySelector(".prt-time--visitante").childNodes[0].textContent.trim();
+
+        const atualizarMetodo = () => {
+            const semVencedor = selectVencedor.value === "__empate__" || selectVencedor.value === "__nc__";
+            selectMetodo.disabled = semVencedor;
+            if (semVencedor) selectMetodo.value = "";
+
+            const vencedor = selectVencedor.value;
+            if (infoDq) {
+                if (selectMetodo.value === "DQ" && vencedor && !semVencedor) {
+                    const desclassificado = vencedor === nomeCasa ? nomeVisitante : nomeCasa;
+                    infoDq.textContent = `Desclassificação: ${desclassificado}`;
+                    infoDq.hidden = false;
+                } else {
+                    infoDq.textContent = "";
+                    infoDq.hidden = true;
+                }
+            }
+        };
+        selectVencedor.addEventListener("change", atualizarMetodo);
+        selectMetodo.addEventListener("change", atualizarMetodo);
+        atualizarMetodo();
+    });
+
     wrap.querySelectorAll(".prt-btn-salvar-luta").forEach(botao => {
         botao.addEventListener("click", async (evento) => {
             const linha = evento.target.closest(".prt-linha");
             const partidaId = linha.dataset.partidaId;
-            const vencedor = linha.querySelector(".prt-select-vencedor").value;
-            const metodo = linha.querySelector(".prt-select-metodo").value;
+            const escolha = linha.querySelector(".prt-select-vencedor").value;
+            const metodoEscolhido = linha.querySelector(".prt-select-metodo").value;
 
-            if (!vencedor || !metodo) {
-                alert("Escolha o vencedor e o método da luta.");
+            // Empate e NC não têm vencedor nem método de vitória
+            const semVencedor = escolha === "__empate__" || escolha === "__nc__";
+            const vencedor = semVencedor ? null : escolha;
+            const metodo = escolha === "__empate__" ? "EMPATE" : escolha === "__nc__" ? "NC" : metodoEscolhido;
+
+            if (!escolha || !metodo) {
+                alert("Escolha o resultado da luta (e o método, se houve vencedor).");
                 return;
             }
 
@@ -886,7 +979,7 @@ function ativarBotoesSalvar(wrap, campeonatoId) {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         gols_casa: parseInt(golsCasa, 10),
-                        gols_visitante: parseInt(golsVisitante, 10),
+                        gols_visitante: parseInt(golsVisitante, 10),    
                         vencedor_penaltis: seletorPenaltis ? (seletorPenaltis.value || null) : null
                     })
                 });

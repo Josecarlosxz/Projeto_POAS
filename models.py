@@ -58,6 +58,7 @@ class Partida(SQLModel, table=True):
     conferencia: Optional[str] = Field(default=None)
     divisao: Optional[str] = Field(default=None)
     etapa: Optional[str] = Field(default=None)
+
     categoria: Optional[str] = Field(default=None)
     metodo_vitoria: Optional[str] = Field(default=None)
     vencedor_penaltis: Optional[str] = Field(default=None)
@@ -91,9 +92,8 @@ class ResultadoPartida(BaseModel):
 
 
 class ResultadoLuta(BaseModel):
-    """UFC: resultado de uma luta - quem venceu e por qual método."""
-    vencedor: str
-    metodo: str  # "KO", "TKO", "SUB" ou "DEC"
+    vencedor: Optional[str] = None
+    metodo: str
 
 
 class CardRequest(BaseModel):

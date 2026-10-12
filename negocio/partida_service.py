@@ -322,6 +322,54 @@ def _calcular_tabela_basquete(times: List[str], partidas: List[Partida]) -> List
     return classificacao
 
 
+def _calcular_tabela_ufc(lutadores: List[str], lutas: List[Partida]) -> List[dict]:
+    """Tabela do UFC: vitórias, derrotas, empates e NC (sem resultado). Ordena por vitórias."""
+    tabela = {
+        nome: {"time": nome, "jogos": 0, "vitorias": 0, "derrotas": 0, "empates": 0, "nc": 0, "sequencia": []}
+        for nome in lutadores
+    }
+
+    for luta in lutas:
+        casa = tabela.get(luta.time_casa)
+        visitante = tabela.get(luta.time_visitante)
+        if not casa or not visitante:
+            continue
+
+        casa["jogos"] += 1
+        visitante["jogos"] += 1
+
+        if luta.metodo_vitoria == "EMPATE":
+            casa["empates"] += 1
+            visitante["empates"] += 1
+            casa["sequencia"].append("E")
+            visitante["sequencia"].append("E")
+        elif luta.metodo_vitoria == "NC":
+            casa["nc"] += 1
+            visitante["nc"] += 1
+            casa["sequencia"].append("N")
+            visitante["sequencia"].append("N")
+        elif luta.gols_casa > luta.gols_visitante:
+            casa["vitorias"] += 1
+            casa["sequencia"].append("V")
+            visitante["derrotas"] += 1
+            visitante["sequencia"].append("D")
+        else:
+            visitante["vitorias"] += 1
+            visitante["sequencia"].append("V")
+            casa["derrotas"] += 1
+            casa["sequencia"].append("D")
+
+    classificacao = [
+        {
+            "time": d["time"], "jogos": d["jogos"], "vitorias": d["vitorias"], "derrotas": d["derrotas"],
+            "empates": d["empates"], "nc": d["nc"], "ultimos_5": d["sequencia"][-5:],
+        }
+        for d in tabela.values()
+    ]
+    classificacao.sort(key=lambda t: (-t["vitorias"], t["derrotas"], -t["empates"]))
+    return classificacao
+
+
 # ----------------------------------------------------------------------
 # Geração de partidas (temporada regular)
 # ----------------------------------------------------------------------
@@ -431,22 +479,35 @@ def atualizar_resultado(
     return _serializar_partida(partida)
 
 
-METODOS_VITORIA_VALIDOS = {"KO", "TKO", "SUB", "DEC"}
+METODOS_VITORIA_VALIDOS = {"KO", "TKO", "SUB", "DEC", "DQ"}  # DQ = desqualificação do adversário
+RESULTADOS_SEM_VENCEDOR = {"EMPATE", "NC"}  # NC = sem resultado (no contest)
 
 
-def atualizar_resultado_luta(session: Session, partida_id: int, vencedor: str, metodo: str) -> Optional[dict]:
-    """UFC: registra o vencedor e o método (KO/TKO/SUB/DEC) de uma luta."""
+def atualizar_resultado_luta(
+    session: Session, partida_id: int, vencedor: Optional[str], metodo: str
+) -> Optional[dict]:
+    """
+    UFC: registra o resultado de uma luta. Ou tem vencedor + método (KO/TKO/SUB/DEC/DQ),
+    ou termina sem vencedor (EMPATE ou NC - sem resultado).
+    """
     partida = session.get(Partida, partida_id)
     if not partida:
         return None
 
-    if vencedor not in (partida.time_casa, partida.time_visitante):
-        raise HTTPException(status_code=400, detail="O vencedor precisa ser um dos dois lutadores da luta")
-    if metodo not in METODOS_VITORIA_VALIDOS:
-        raise HTTPException(status_code=400, detail="Método de vitória inválido (use KO, TKO, SUB ou DEC)")
+    if metodo in RESULTADOS_SEM_VENCEDOR:
+        partida.gols_casa = 0
+        partida.gols_visitante = 0
+    else:
+        if metodo not in METODOS_VITORIA_VALIDOS:
+            raise HTTPException(
+                status_code=400,
+                detail="Resultado inválido (use KO, TKO, SUB, DEC, DQ, EMPATE ou NC)"
+            )
+        if vencedor not in (partida.time_casa, partida.time_visitante):
+            raise HTTPException(status_code=400, detail="O vencedor precisa ser um dos dois lutadores da luta")
+        partida.gols_casa = 1 if vencedor == partida.time_casa else 0
+        partida.gols_visitante = 1 if vencedor == partida.time_visitante else 0
 
-    partida.gols_casa = 1 if vencedor == partida.time_casa else 0
-    partida.gols_visitante = 1 if vencedor == partida.time_visitante else 0
     partida.metodo_vitoria = metodo
     partida.finalizada = True
 
@@ -594,32 +655,40 @@ def remover_luta(session: Session, partida_id: int) -> dict:
     return {"removida": True}
 
 
-def _calcular_situacao_titulo(lutas_titulo_em_ordem: List[Partida]) -> tuple:
+def _chave_ordem_luta(luta: Partida) -> tuple:
+    """Ordem cronológica: lutas sem card (antigas) primeiro, depois por card e por luta."""
+    return (luta.card_id or 0, luta.id or 0)
+
+
+def _calcular_situacao_titulo(lutas_em_ordem: List[Partida]) -> tuple:
     """
-    Percorre as lutas de título já finalizadas (da mais antiga pra mais recente) e devolve
-    (campeão atual, ex-campeão). O ex-campeão é quem acabou de perder o cinturão: ele volta
-    ao ranking como número 1. Defesa de título bem-sucedida não muda nada.
+    Percorre as lutas finalizadas da categoria (da mais antiga pra mais recente) e devolve
+    (campeão atual, ex-campeão).
+    - Quem vence a luta de cinturão vira campeão; se ele não era o campeão, o campeão anterior
+      vira o ex-campeão (volta ao ranking como número 1).
+    - Defesa de título bem-sucedida, empate e NC não mudam nada.
+    - O ex-campeão deixa de ser o número 1 assim que perde uma luta (normal ou de cinturão):
+      a partir daí ele volta à posição normal da tabela.
     """
     campeao: Optional[str] = None
     ex_campeao: Optional[str] = None
-    for luta in lutas_titulo_em_ordem:
+
+    for luta in lutas_em_ordem:
+        if luta.metodo_vitoria in RESULTADOS_SEM_VENCEDOR:
+            continue  # empate ou NC: ninguém perde nada, o campeão mantém o cinturão
+
         vencedor = _vencedor_partida(luta)
-        if campeao is not None and vencedor != campeao:
-            ex_campeao = campeao
-        campeao = vencedor
+        perdedor = luta.time_visitante if vencedor == luta.time_casa else luta.time_casa
+
+        if ex_campeao is not None and perdedor == ex_campeao:
+            ex_campeao = None
+
+        if luta.fase == "titulo":
+            if campeao is not None and vencedor != campeao:
+                ex_campeao = campeao
+            campeao = vencedor
+
     return campeao, ex_campeao
-
-
-def _situacao_titulo_categoria(session: Session, campeonato_id: int, categoria: str) -> tuple:
-    lutas_titulo = session.exec(
-        select(Partida).where(
-            Partida.campeonato_id == campeonato_id,
-            Partida.categoria == categoria,
-            Partida.fase == "titulo",
-            Partida.finalizada == True,  # noqa: E712
-        ).order_by(Partida.rodada, Partida.id)
-    ).all()
-    return _calcular_situacao_titulo(lutas_titulo)
 
 
 def _montar_ranking(tabela: List[dict], campeao: Optional[str], ex_campeao: Optional[str]) -> List[dict]:
@@ -697,9 +766,12 @@ def calcular_classificacao(session: Session, campeonato_id: int) -> dict:
 
         resultado_categorias = {}
         for nome_categoria, lutadores in categorias_dict.items():
-            finalizadas = [p for p in todas_as_lutas if p.categoria == nome_categoria and p.finalizada]
-            campeao, ex_campeao = _situacao_titulo_categoria(session, campeonato_id, nome_categoria)
-            tabela = _calcular_tabela_basquete(lutadores, finalizadas)
+            finalizadas = sorted(
+                (p for p in todas_as_lutas if p.categoria == nome_categoria and p.finalizada),
+                key=_chave_ordem_luta,
+            )
+            campeao, ex_campeao = _calcular_situacao_titulo(finalizadas)
+            tabela = _calcular_tabela_ufc(lutadores, finalizadas)
             resultado_categorias[nome_categoria] = {
                 "tabela": _montar_ranking(tabela, campeao, ex_campeao),
                 "campeao": campeao,
