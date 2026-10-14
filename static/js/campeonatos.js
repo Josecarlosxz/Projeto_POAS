@@ -35,9 +35,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // A seção genérica de times (usada por Futebol, NFL, F1, Outro) some quando
     // o esporte já define os times de outro jeito (Basquete por conferência,
-    // UFC por categoria).
+    // UFC por categoria, NFL por conferência e divisão).
     function atualizarVisibilidadeSecaoTimesPadrao(esporte) {
-        const temTimesProprios = esporte === "Basquete" || esporte === "UFC";
+        const temTimesProprios = esporte === "Basquete" || esporte === "UFC" || esporte === "NFL";
         secaoTimesPadrao.classList.toggle("hidden", temTimesProprios);
         inputQuantidade.required = !temTimesProprios;
         listaInputsTimes.querySelectorAll(".input-time").forEach(input => {
@@ -166,6 +166,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 listaCategorias.appendChild(criarBlocoCategoriaUFC());
             });
 
+        } else if (esporte === "NFL") {
+            opcoesEspecificas.innerHTML = `
+                <div id="lista-conferencias-nfl"></div>
+            `;
+            const listaConferencias = document.getElementById("lista-conferencias-nfl");
+            listaConferencias.appendChild(criarBlocoConferenciaNFL("AFC"));
+            listaConferencias.appendChild(criarBlocoConferenciaNFL("NFC"));
+
         } else {
             opcoesEspecificas.innerHTML = "";
         }
@@ -189,6 +197,37 @@ document.addEventListener("DOMContentLoaded", function () {
                 </div>
             `;
         }
+    }
+
+    // --- NFL: conferência (nome) > 4 divisões (nome) > 4 times cada ---
+
+    function criarBlocoConferenciaNFL(nomePadrao) {
+        const nomesDivisoes = ["Leste", "Norte", "Sul", "Oeste"];
+        const bloco = document.createElement("div");
+        bloco.className = "bloco-conferencia bloco-conferencia-nfl";
+        bloco.innerHTML = `
+            <div class="form-group">
+                <label>Nome da conferência</label>
+                <input type="text" class="input-nome-conferencia-nfl" required value="${nomePadrao}">
+            </div>
+            ${nomesDivisoes.map(nomeDivisao => `
+                <div class="bloco-divisao-nfl">
+                    <div class="form-group">
+                        <label>Nome da divisão</label>
+                        <input type="text" class="input-nome-divisao-nfl" required value="${nomeDivisao}">
+                    </div>
+                    <div class="lista-inputs-times">
+                        ${[1, 2, 3, 4].map(n => `
+                            <div class="form-group">
+                                <label>Time ${n}</label>
+                                <input type="text" class="input-time-nfl" required placeholder="Nome do time ${n}">
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>
+            `).join("")}
+        `;
+        return bloco;
     }
 
     function criarBlocoCategoriaUFC() {
@@ -345,6 +384,54 @@ document.addEventListener("DOMContentLoaded", function () {
 
             times = todosLutadores;
             configuracao = { categorias };
+
+        } else if (esporte === "NFL") {
+            const conferencias = {};
+            const todosTimes = [];
+
+            for (const blocoConferencia of document.querySelectorAll("#lista-conferencias-nfl .bloco-conferencia-nfl")) {
+                const nomeConferencia = blocoConferencia.querySelector(".input-nome-conferencia-nfl").value.trim();
+                if (!nomeConferencia) {
+                    alert("Informe o nome das duas conferências.");
+                    return;
+                }
+                if (conferencias[nomeConferencia]) {
+                    alert("As conferências precisam ter nomes diferentes.");
+                    return;
+                }
+
+                const divisoes = {};
+                for (const blocoDivisao of blocoConferencia.querySelectorAll(".bloco-divisao-nfl")) {
+                    const nomeDivisao = blocoDivisao.querySelector(".input-nome-divisao-nfl").value.trim();
+                    if (!nomeDivisao) {
+                        alert(`Informe o nome de todas as divisões da conferência "${nomeConferencia}".`);
+                        return;
+                    }
+                    if (divisoes[nomeDivisao]) {
+                        alert(`A conferência "${nomeConferencia}" tem duas divisões com o mesmo nome.`);
+                        return;
+                    }
+
+                    const timesDaDivisao = Array.from(blocoDivisao.querySelectorAll(".input-time-nfl"))
+                        .map(input => input.value.trim());
+                    if (timesDaDivisao.some(time => !time)) {
+                        alert(`Preencha os 4 times da divisão "${nomeDivisao}" (${nomeConferencia}).`);
+                        return;
+                    }
+
+                    divisoes[nomeDivisao] = timesDaDivisao;
+                    todosTimes.push(...timesDaDivisao);
+                }
+                conferencias[nomeConferencia] = divisoes;
+            }
+
+            if (new Set(todosTimes.map(t => t.toLowerCase())).size !== todosTimes.length) {
+                alert("Não repita o nome de um time.");
+                return;
+            }
+
+            times = todosTimes;
+            configuracao = { conferencias };
 
         } else {
             times = Array.from(document.querySelectorAll(".input-time"))

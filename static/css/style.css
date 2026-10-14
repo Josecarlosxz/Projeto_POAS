@@ -1770,3 +1770,108 @@ a {
 }
 
 .clf-icone--nc { background: #6b7280; }
+
+/* --- NFL --- */
+
+.nfl-titulo-secao {
+    margin: 18px 0 8px;
+    font-size: 15px;
+    color: #111827;
+}
+
+.clf-td-vaga {
+    text-align: left;
+    color: #374151;
+    font-size: 13px;
+}
+
+.seletor-semana {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.seletor-semana label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.seletor-semana select {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.bloco-divisao-nfl {
+    border-left: 3px solid #e2e8f0;
+    padding-left: 12px;
+    margin-bottom: 14px;
+}
+
+/* --- Detalhe do campeonato: tabela à esquerda, jogos à direita --- */
+
+.detalhe-colunas {
+    /* Ajuste o tamanho da tabela aqui: proporção das colunas, fonte e espaçamento das células */
+    --largura-tabela: 1.6fr;
+    --largura-jogos: 1fr;
+    --fonte-tabela: 15px;
+    --espaco-celula: 15px 10px;
+    --tamanho-icone: 24px;
+
+    display: grid;
+    grid-template-columns: minmax(0, var(--largura-tabela)) minmax(0, var(--largura-jogos));
+    gap: 24px;
+    align-items: start;
+}
+
+.detalhe-colunas .secao-classificacao,
+.detalhe-colunas .secao-partidas {
+    min-width: 0;
+}
+
+.detalhe-colunas .secao-titulo {
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.detalhe-colunas .clf-table {
+    min-width: 0;
+}
+
+.detalhe-colunas .clf-table th {
+    padding: var(--espaco-celula);
+    font-size: 12px;
+}
+
+.detalhe-colunas .clf-table tbody td {
+    padding: var(--espaco-celula);
+    font-size: var(--fonte-tabela);
+}
+
+.detalhe-colunas .clf-td-pts {
+    font-size: calc(var(--fonte-tabela) + 2px);
+}
+
+.detalhe-colunas .clf-td-ultimas {
+    min-width: 0;
+}
+
+.detalhe-colunas .clf-icone {
+    width: var(--tamanho-icone);
+    height: var(--tamanho-icone);
+    font-size: 11px;
+}
+
+.detalhe-colunas .prt-linha {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+}
+
+@media (max-width: 1100px) {
+    .detalhe-colunas {
+        grid-template-columns: 1fr;
+    }
+}

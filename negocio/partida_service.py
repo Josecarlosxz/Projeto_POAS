@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from dados.models import Campeonato, Partida, Card
+from negocio import nfl_service
 
 NOMES_GRUPOS_PADRAO = ["A", "B", "C", "D", "E", "F", "G", "H"]
 NUM_TIMES_POR_GRUPO = 4  # futebol: grupos sempre com 4 times, top 2 de cada avançam
@@ -430,8 +431,21 @@ def gerar_partidas(session: Session, campeonato_id: int) -> List[dict]:
                 times_da_conf, campeonato_id, ida_volta_temporada, conferencia=nome_conf
             )
 
+    elif campeonato.esporte == "NFL":
+        # Temporada de 17 jogos por time (fórmula da NFL), distribuída em semanas.
+        conferencias = configuracao.get("conferencias", {})
+        for casa, visitante, semana in nfl_service.gerar_calendario(conferencias):
+            novas_partidas.append(Partida(
+                campeonato_id=campeonato_id, rodada=semana, turno=1,
+                time_casa=casa, time_visitante=visitante,
+            ))
+        if "seeds" in configuracao:  # seeds dos playoffs antigos não valem mais
+            configuracao.pop("seeds")
+            campeonato.configuracao = json.dumps(configuracao)
+            session.add(campeonato)
+
     else:
-        # esportes ainda não configuráveis (NFL, F1) - comportamento padrão por enquanto
+        # esportes ainda não configuráveis (F1) - comportamento padrão por enquanto
         novas_partidas = _gerar_partidas_rodada_unica_ou_dupla(times, campeonato_id, True)
 
     session.add_all(novas_partidas)
@@ -465,6 +479,11 @@ def atualizar_resultado(
     campeonato = session.get(Campeonato, partida.campeonato_id)
     if campeonato and campeonato.esporte == "Basquete" and gols_casa == gols_visitante:
         raise HTTPException(status_code=400, detail="Basquete não permite empate — o placar não pode terminar igual")
+    if campeonato and campeonato.esporte == "NFL" and partida.fase == "playoffs" and gols_casa == gols_visitante:
+        raise HTTPException(
+            status_code=400,
+            detail="Nos playoffs da NFL não existe empate — o jogo vai pra prorrogação até alguém vencer"
+        )
 
     partida.gols_casa = gols_casa
     partida.gols_visitante = gols_visitante
@@ -755,6 +774,16 @@ def calcular_classificacao(session: Session, campeonato_id: int) -> dict:
 
         return {"formato": "conferencias", "conferencias": resultado_conf}
 
+    if campeonato.esporte == "NFL":
+        jogos_finalizados = session.exec(
+            select(Partida).where(
+                Partida.campeonato_id == campeonato_id,
+                Partida.fase == None,  # noqa: E711
+                Partida.finalizada == True,  # noqa: E712
+            )
+        ).all()
+        return nfl_service.calcular_classificacao(configuracao.get("conferencias", {}), jogos_finalizados)
+
     if campeonato.esporte == "UFC":
         categorias_dict = configuracao.get("categorias", {})
 
@@ -801,6 +830,8 @@ def gerar_playoffs(session: Session, campeonato_id: int) -> List[dict]:
         return _gerar_playoffs_futebol(session, campeonato_id)
     if campeonato.esporte == "Basquete":
         return _gerar_playoffs_basquete(session, campeonato_id)
+    if campeonato.esporte == "NFL":
+        return _gerar_playoffs_nfl(session, campeonato_id)
 
     raise HTTPException(status_code=400, detail="Playoffs ainda não estão disponíveis para este esporte")
 
@@ -812,6 +843,9 @@ def avancar_fase_playoffs(session: Session, campeonato_id: int) -> dict:
 
     if campeonato.esporte == "Futebol":
         return _avancar_fase_playoffs_generico(session, campeonato_id)
+
+    if campeonato.esporte == "NFL":
+        return _avancar_fase_playoffs_nfl(session, campeonato_id)
 
     if campeonato.esporte == "Basquete":
         configuracao = _obter_configuracao(campeonato)
@@ -1039,3 +1073,113 @@ def _avancar_fase_playoffs_basquete_conferencias(session: Session, campeonato_id
         return {"finalizado": False, "campeao": None, "partidas": [_serializar_partida(nova_final)]}
 
     raise HTTPException(status_code=400, detail="Estado inesperado dos playoffs")
+
+
+# --- NFL: Wild Card -> Divisional -> Final de Conferência -> Super Bowl ---
+
+def _gerar_playoffs_nfl(session: Session, campeonato_id: int) -> List[dict]:
+    """Define os 7 classificados de cada conferência (seeds) e gera a rodada de Wild Card."""
+    campeonato = session.get(Campeonato, campeonato_id)
+    configuracao = _obter_configuracao(campeonato)
+    conferencias = configuracao.get("conferencias", {})
+
+    jogos_temporada = session.exec(
+        select(Partida).where(Partida.campeonato_id == campeonato_id, Partida.fase == None)  # noqa: E711
+    ).all()
+    if not jogos_temporada:
+        raise HTTPException(status_code=400, detail="Sorteie a temporada antes de gerar os playoffs")
+    if any(not j.finalizada for j in jogos_temporada):
+        raise HTTPException(status_code=400, detail="Ainda há jogos da temporada sem resultado")
+
+    seeds = nfl_service.calcular_seeds(conferencias, jogos_temporada)
+
+    playoffs_antigos = session.exec(
+        select(Partida).where(Partida.campeonato_id == campeonato_id, Partida.fase == "playoffs")
+    ).all()
+    for p in playoffs_antigos:
+        session.delete(p)
+    session.commit()
+
+    novas_partidas: List[Partida] = []
+    for conferencia, lista_seeds in seeds.items():
+        times_por_seed = [s["time"] for s in lista_seeds]
+        for casa, visitante in nfl_service.confrontos_wild_card(times_por_seed):
+            novas_partidas.append(Partida(
+                campeonato_id=campeonato_id, rodada=1, turno=1,
+                time_casa=casa, time_visitante=visitante,
+                fase="playoffs", conferencia=conferencia, etapa=nfl_service.ETAPA_WILD_CARD,
+            ))
+
+    # os seeds ficam guardados: o chaveamento das próximas fases (reclassificação) depende deles
+    configuracao["seeds"] = {conf: [s["time"] for s in lista] for conf, lista in seeds.items()}
+    campeonato.configuracao = json.dumps(configuracao)
+    session.add(campeonato)
+
+    session.add_all(novas_partidas)
+    session.commit()
+    for p in novas_partidas:
+        session.refresh(p)
+    return [_serializar_partida(p) for p in novas_partidas]
+
+
+def _avancar_fase_playoffs_nfl(session: Session, campeonato_id: int) -> dict:
+    campeonato = session.get(Campeonato, campeonato_id)
+    configuracao = _obter_configuracao(campeonato)
+    seeds_por_conferencia = configuracao.get("seeds")
+
+    partidas_playoffs = session.exec(
+        select(Partida)
+        .where(Partida.campeonato_id == campeonato_id, Partida.fase == "playoffs")
+        .order_by(Partida.rodada, Partida.id)
+    ).all()
+    if not partidas_playoffs or not seeds_por_conferencia:
+        raise HTTPException(status_code=400, detail="Gere os playoffs antes de avançar de fase")
+
+    rodada_atual = max(p.rodada for p in partidas_playoffs)
+    jogos = [p for p in partidas_playoffs if p.rodada == rodada_atual]
+    if any(not j.finalizada for j in jogos):
+        raise HTTPException(status_code=400, detail="Ainda há jogos dessa fase sem resultado")
+
+    etapa = jogos[0].etapa
+
+    if etapa == nfl_service.ETAPA_SUPER_BOWL:
+        return {"finalizado": True, "campeao": _vencedor_partida(jogos[0]), "partidas": []}
+
+    novas_partidas: List[Partida] = []
+
+    if etapa == nfl_service.ETAPA_FINAL_CONFERENCIA:
+        campeoes = []
+        for conferencia in seeds_por_conferencia:
+            jogo_da_conferencia = next(j for j in jogos if j.conferencia == conferencia)
+            campeoes.append(_vencedor_partida(jogo_da_conferencia))
+        novas_partidas.append(Partida(
+            campeonato_id=campeonato_id, rodada=rodada_atual + 1, turno=1,
+            time_casa=campeoes[0], time_visitante=campeoes[1],
+            fase="playoffs", conferencia=None, etapa=nfl_service.ETAPA_SUPER_BOWL,
+        ))
+    else:
+        proxima_etapa = {
+            nfl_service.ETAPA_WILD_CARD: nfl_service.ETAPA_DIVISIONAL,
+            nfl_service.ETAPA_DIVISIONAL: nfl_service.ETAPA_FINAL_CONFERENCIA,
+        }.get(etapa)
+        if proxima_etapa is None:
+            raise HTTPException(status_code=400, detail="Fase de playoffs desconhecida")
+
+        for conferencia, seeds in seeds_por_conferencia.items():
+            vencedores = [_vencedor_partida(j) for j in jogos if j.conferencia == conferencia]
+            if etapa == nfl_service.ETAPA_WILD_CARD:
+                confrontos = nfl_service.confrontos_divisional(seeds, vencedores)
+            else:
+                confrontos = nfl_service.confronto_final_conferencia(seeds, vencedores)
+            for casa, visitante in confrontos:
+                novas_partidas.append(Partida(
+                    campeonato_id=campeonato_id, rodada=rodada_atual + 1, turno=1,
+                    time_casa=casa, time_visitante=visitante,
+                    fase="playoffs", conferencia=conferencia, etapa=proxima_etapa,
+                ))
+
+    session.add_all(novas_partidas)
+    session.commit()
+    for p in novas_partidas:
+        session.refresh(p)
+    return {"finalizado": False, "campeao": None, "partidas": [_serializar_partida(p) for p in novas_partidas]}

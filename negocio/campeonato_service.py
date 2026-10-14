@@ -11,12 +11,19 @@ from acesso_dados.campeonato_repository import (
 )
 from dados.models import Campeonato
 from negocio.partida_service import calcular_num_grupos
+from negocio import nfl_service
 
 FORMATOS_FUTEBOL_VALIDOS = {"pontos_corridos", "grupos_playoffs"}
 TURNOS_GRUPO_VALIDOS = {"unico", "ida_volta"}
 
 
 def _validar_e_normalizar_configuracao(esporte: str, configuracao: Optional[str]) -> dict:
+    """
+    Valida a configuração específica do esporte enviada na criação do campeonato
+    e devolve um dict pronto para ser serializado. Futebol e Basquete já têm
+    configuração implementada; os demais esportes serão adicionados nas
+    próximas etapas.
+    """
     dados_configuracao: dict = {}
     if configuracao:
         try:
@@ -107,6 +114,10 @@ def _validar_e_normalizar_configuracao(esporte: str, configuracao: Optional[str]
 
         dados_configuracao["categorias"] = categorias_normalizadas
 
+    elif esporte == "NFL":
+        # {conferência: {divisão: [4 times]}} - 2 conferências, 4 divisões, 4 times (32 times, como a NFL)
+        dados_configuracao["conferencias"] = nfl_service.normalizar_conferencias(dados_configuracao.get("conferencias"))
+
     return dados_configuracao
 
 
@@ -151,6 +162,14 @@ def criar_campeonato(
             raise HTTPException(
                 status_code=400,
                 detail="Os lutadores informados não batem com os lutadores distribuídos nas categorias"
+            )
+    elif esporte == "NFL":
+        dados_configuracao = _validar_e_normalizar_configuracao(esporte, configuracao)
+        times_das_divisoes = nfl_service.listar_times(dados_configuracao["conferencias"])
+        if sorted(t.lower() for t in times_das_divisoes) != sorted(t.lower() for t in lista_times):
+            raise HTTPException(
+                status_code=400,
+                detail="Os times informados não batem com os times distribuídos nas divisões"
             )
     else:
         dados_configuracao = _validar_e_normalizar_configuracao(esporte, configuracao)

@@ -2,6 +2,7 @@ let campeonatoAtual = null;
 let classificacaoCache = null;
 let partidasCache = [];
 let cardsCache = [];
+let semanaNflSelecionada = null;
 let numerosConfrontoUfc = new Map(); // id da luta -> nº do confronto (1ª vez, 2ª vez...)
 let abaSelecionada = null;
 
@@ -32,20 +33,23 @@ function modoExibicao() {
     if (esporte === "UFC") {
         return "ufc_categorias";
     }
+    if (esporte === "NFL") {
+        return "nfl";
+    }
     return "generico";
 }
 
 function temAbas(modo) {
-    return modo === "futebol_grupos" || modo === "basquete_conferencias" || modo === "ufc_categorias";
+    return modo === "futebol_grupos" || modo === "basquete_conferencias" || modo === "ufc_categorias" || modo === "nfl";
 }
 
 function temPlayoffs(modo) {
-    return modo === "futebol_grupos" || modo === "basquete_unica" || modo === "basquete_conferencias";
+    return modo === "futebol_grupos" || modo === "basquete_unica" || modo === "basquete_conferencias" || modo === "nfl";
 }
 
 function rotuloAba(nome) {
     if (campeonatoAtual.esporte === "Basquete") return `Conferência ${nome}`;
-    if (campeonatoAtual.esporte === "UFC") return nome;
+    if (campeonatoAtual.esporte === "UFC" || campeonatoAtual.esporte === "NFL") return nome;
     return `Grupo ${nome}`;
 }
 
@@ -70,6 +74,7 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
             futebol_grupos: "Sortear fase de grupos",
             basquete_unica: "Sortear temporada",
             basquete_conferencias: "Sortear temporada",
+            nfl: "Sortear temporada",
             generico: "Sortear partidas",
         };
 
@@ -82,6 +87,7 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
             <h1>${campeonatoAtual.nome}</h1>
             <p class="detalhe-subtitulo">${campeonatoAtual.quantidade_times} times participantes</p>
 
+            <div class="detalhe-colunas">
             <div class="secao-classificacao">
                 <div class="secao-titulo">
                     <h2>Classificação</h2>
@@ -111,6 +117,7 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
                 </div>
                 <div id="partidas-wrap"></div>
             </div>
+            </div>
         `;
 
         const btnGerarPartidas = document.getElementById("btn-gerar-partidas");
@@ -129,6 +136,7 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
                 if (!resposta.ok) throw new Error("Erro ao gerar partidas");
 
                 abaSelecionada = null;
+                semanaNflSelecionada = null;
                 await carregarPartidas(campeonatoId);
                 await carregarClassificacao(campeonatoId);
             } catch (erro) {
@@ -250,7 +258,7 @@ function renderizarAbas(campeonatoId, grupos) {
             renderizarAbas(campeonatoId, classificacaoCache[chaveGrupo] || {});
             renderizarClassificacaoDaAba(document.getElementById("classificacao-wrap"), chaveGrupo);
             // No UFC os cards mostram lutas de todas as categorias; a aba só muda a tabela.
-            if (modo !== "ufc_categorias") {
+            if (modo !== "ufc_categorias" && modo !== "nfl") {
                 renderizarPartidas(document.getElementById("partidas-wrap"), campeonatoId, partidasCache);
             }
         });
@@ -275,6 +283,10 @@ function renderizarClassificacaoDaAba(wrap, chaveGrupo) {
     const tabela = classificacaoCache?.[chaveGrupo]?.[abaSelecionada];
     if (!abaSelecionada || !tabela) {
         wrap.innerHTML = "<p>Sorteie a temporada para ver a classificação.</p>";
+        return;
+    }
+    if (campeonatoAtual.esporte === "NFL") {
+        renderizarClassificacaoNFL(wrap, tabela);
         return;
     }
     renderizarTabela(wrap, tabela);
@@ -344,6 +356,101 @@ function renderizarClassificacaoFutebol(wrap, classificacao) {
             </table>
         </div>
     `;
+}
+
+function formatarAproveitamento(valor) {
+    return valor.toFixed(3).replace(/^0/, "");
+}
+
+function tabelaTimesNFL(linhas) {
+    const corpo = linhas.map((time, index) => {
+        const ultimos5 = [...time.ultimos_5];
+        while (ultimos5.length < 5) ultimos5.unshift(null);
+        const iconesHtml = ultimos5.map(resultado => iconeResultado(resultado)).join("");
+
+        return `
+            <tr>
+                <td class="clf-td-pos">${index + 1}</td>
+                <td class="clf-td-nome">${time.time}</td>
+                <td class="clf-td-pts">${time.vitorias}</td>
+                <td>${time.derrotas}</td>
+                <td>${time.empates}</td>
+                <td>${formatarAproveitamento(time.aproveitamento)}</td>
+                <td>${time.pontos_marcados}</td>
+                <td>${time.pontos_sofridos}</td>
+                <td>${time.saldo_pontos}</td>
+                <td>${time.record_divisao}</td>
+                <td>${time.record_conferencia}</td>
+                <td class="clf-td-ultimas">
+                    <div class="clf-icones">${iconesHtml}</div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    return `
+        <div class="clf-wrap">
+            <table class="clf-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th class="clf-th-esquerda">Time</th>
+                        <th>V</th>
+                        <th>D</th>
+                        <th>E</th>
+                        <th>%</th>
+                        <th>PF</th>
+                        <th>PC</th>
+                        <th>SALDO</th>
+                        <th>DIV</th>
+                        <th>CONF</th>
+                        <th class="clf-td-ultimas">Últimas 5</th>
+                    </tr>
+                </thead>
+                <tbody>${corpo}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+// NFL: cabeças de chave (7 vagas) + uma tabela por divisão da conferência escolhida
+function renderizarClassificacaoNFL(wrap, dados) {
+    const divisoes = dados.divisoes || {};
+    const algumJogoFinalizado = Object.values(divisoes).some(linhas => linhas.some(l => l.jogos > 0));
+
+    let blocoSeeds = "";
+    if (algumJogoFinalizado) {
+        const linhasSeeds = (dados.seeds || []).map(seed => `
+            <tr>
+                <td class="clf-td-pos">${seed.seed}</td>
+                <td class="clf-td-nome">${seed.time}</td>
+                <td class="clf-td-vaga">${seed.tipo}${seed.divisao ? ` — ${seed.divisao}` : ""}</td>
+            </tr>
+        `).join("");
+
+        blocoSeeds = `
+            <h3 class="nfl-titulo-secao">Cabeças de chave (playoffs)</h3>
+            <div class="clf-wrap">
+                <table class="clf-table">
+                    <thead>
+                        <tr>
+                            <th>Seed</th>
+                            <th class="clf-th-esquerda">Time</th>
+                            <th class="clf-th-esquerda">Vaga</th>
+                        </tr>
+                    </thead>
+                    <tbody>${linhasSeeds}</tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    const blocosDivisoes = Object.entries(divisoes).map(([nomeDivisao, linhas]) => `
+        <h3 class="nfl-titulo-secao">${nomeDivisao}</h3>
+        ${tabelaTimesNFL(linhas)}
+    `).join("");
+
+    wrap.innerHTML = blocoSeeds + blocosDivisoes;
 }
 
 function renderizarClassificacaoUFC(wrap, classificacao) {
@@ -570,6 +677,47 @@ function renderizarPartidas(wrap, campeonatoId, partidas) {
             </div>
         `;
 
+    } else if (modo === "nfl") {
+        const jogosTemporada = partidas.filter(p => p.fase === null);
+        const partidasPlayoffs = partidas.filter(p => p.fase === "playoffs");
+        const semanas = [...new Set(jogosTemporada.map(p => p.rodada))].sort((a, b) => a - b);
+
+        if (semanaNflSelecionada === null || !semanas.includes(semanaNflSelecionada)) {
+            const primeiraPendente = semanas.find(s => jogosTemporada.some(p => p.rodada === s && !p.finalizada));
+            semanaNflSelecionada = primeiraPendente ?? semanas[semanas.length - 1] ?? null;
+        }
+
+        const jogosDaSemana = jogosTemporada.filter(p => p.rodada === semanaNflSelecionada);
+        const opcoesSemana = semanas.map(s =>
+            `<option value="${s}" ${s === semanaNflSelecionada ? "selected" : ""}>Semana ${s}</option>`
+        ).join("");
+        const blocoPlayoffs = renderizarBlocoPorEtapa(partidasPlayoffs, false);
+
+        wrap.innerHTML = `
+            <div class="prt-lista">
+                <h3>Temporada regular</h3>
+                ${semanas.length ? `
+                    <div class="seletor-semana">
+                        <label>Semana</label>
+                        <select class="select-semana-nfl">${opcoesSemana}</select>
+                    </div>
+                    <div class="prt-rodada">
+                        ${jogosDaSemana.map(p => linhaPartidaHtml(p, false)).join("")}
+                    </div>
+                ` : "<p>Sorteie a temporada para ver os jogos.</p>"}
+                <h3>Playoffs</h3>
+                ${blocoPlayoffs || "<p>Playoffs ainda não gerados. Finalize a temporada e clique em \"Gerar Playoffs\".</p>"}
+            </div>
+        `;
+
+        const selectSemana = wrap.querySelector(".select-semana-nfl");
+        if (selectSemana) {
+            selectSemana.addEventListener("change", () => {
+                semanaNflSelecionada = parseInt(selectSemana.value, 10);
+                renderizarPartidas(wrap, campeonatoId, partidasCache);
+            });
+        }
+
     } else {
         const bloco = renderizarBlocoRodadas(partidas, p => {
             const rotuloTurno = p.turno === 1 ? "Turno" : "Returno";
@@ -662,7 +810,7 @@ function calcularNumerosConfronto(lutas) {
 function linhaLutaHtml(partida) {
     const ehTitulo = partida.fase === "titulo";
     const numeroConfronto = numerosConfrontoUfc.get(partida.id) || 1;
-    const metodos = [["KO", "KO"], ["TKO", "TKO"], ["SUB", "SUB"], ["DEC", "DEC"], ["DQ", "DQ"]];
+    const metodos = [["KO", "KO"], ["TKO", "TKO"], ["SUB", "SUB"], ["DEC", "DEC"], ["DQ", "DQ (desqualificação)"]];
     const opcoesVencedor = `
         <option value="">Vencedor</option>
         <option value="${partida.time_casa}" ${partida.finalizada && partida.gols_casa === 1 ? "selected" : ""}>${partida.time_casa}</option>
@@ -684,7 +832,6 @@ function linhaLutaHtml(partida) {
             <span class="prt-time prt-time--visitante">${partida.time_visitante}${numeroConfronto > 1 ? ` <span class="numero-confronto">${numeroConfronto}</span>` : ""}</span>
             <select class="prt-select-vencedor">${opcoesVencedor}</select>
             <select class="prt-select-metodo" ${semVencedor ? "disabled" : ""}>${opcoesMetodo}</select>
-            <span class="prt-dq-info" hidden></span>
             <button class="prt-btn-salvar-luta">Salvar</button>
             ${partida.finalizada ? "" : `<button class="prt-btn-remover-luta" title="Remover luta">&times;</button>`}
         </div>
@@ -857,36 +1004,18 @@ function renderizarPartidasUFC(wrap, campeonatoId, partidas) {
 }
 
 function ativarBotoesSalvarLutas(wrap, campeonatoId) {
-    // Empate/NC não têm método de vitória: desabilita o campo de método quando escolhidos.
-    // DQ: mostra o nome do adversário do vencedor (o desclassificado).
+    // Empate/NC não têm método de vitória: desabilita o campo de método quando escolhidos
     wrap.querySelectorAll(".prt-linha--luta").forEach(linha => {
         const selectVencedor = linha.querySelector(".prt-select-vencedor");
         const selectMetodo = linha.querySelector(".prt-select-metodo");
-        const infoDq = linha.querySelector(".prt-dq-info");
         if (!selectVencedor || !selectMetodo) return;
-
-        const nomeCasa = linha.querySelector(".prt-time--casa").childNodes[0].textContent.trim();
-        const nomeVisitante = linha.querySelector(".prt-time--visitante").childNodes[0].textContent.trim();
 
         const atualizarMetodo = () => {
             const semVencedor = selectVencedor.value === "__empate__" || selectVencedor.value === "__nc__";
             selectMetodo.disabled = semVencedor;
             if (semVencedor) selectMetodo.value = "";
-
-            const vencedor = selectVencedor.value;
-            if (infoDq) {
-                if (selectMetodo.value === "DQ" && vencedor && !semVencedor) {
-                    const desclassificado = vencedor === nomeCasa ? nomeVisitante : nomeCasa;
-                    infoDq.textContent = `Desclassificação: ${desclassificado}`;
-                    infoDq.hidden = false;
-                } else {
-                    infoDq.textContent = "";
-                    infoDq.hidden = true;
-                }
-            }
         };
         selectVencedor.addEventListener("change", atualizarMetodo);
-        selectMetodo.addEventListener("change", atualizarMetodo);
         atualizarMetodo();
     });
 
@@ -979,7 +1108,7 @@ function ativarBotoesSalvar(wrap, campeonatoId) {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         gols_casa: parseInt(golsCasa, 10),
-                        gols_visitante: parseInt(golsVisitante, 10),    
+                        gols_visitante: parseInt(golsVisitante, 10),
                         vencedor_penaltis: seletorPenaltis ? (seletorPenaltis.value || null) : null
                     })
                 });
@@ -988,6 +1117,10 @@ function ativarBotoesSalvar(wrap, campeonatoId) {
                     const erro = await resposta.json().catch(() => null);
                     throw new Error(erro?.detail || "Erro ao salvar resultado");
                 }
+
+                const partidaAtualizada = await resposta.json();
+                const posicaoNoCache = partidasCache.findIndex(p => p.id === partidaAtualizada.id);
+                if (posicaoNoCache >= 0) partidasCache[posicaoNoCache] = partidaAtualizada;
 
                 linha.classList.add("prt-linha--finalizada");
                 await carregarClassificacao(campeonatoId);
