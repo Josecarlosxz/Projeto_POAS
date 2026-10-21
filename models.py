@@ -96,6 +96,15 @@ class ResultadoLuta(BaseModel):
     metodo: str
 
 
+class PartidaManualRequest(BaseModel):
+    """Partida adicionada à mão (alternativa ao sorteio automático)."""
+    time_casa: str
+    time_visitante: str
+    rodada: int = 1
+    grupo: Optional[str] = None        # só na fase de grupos do futebol
+    conferencia: Optional[str] = None  # só no basquete com 2 conferências
+
+
 class CardRequest(BaseModel):
     """UFC: nome do card (evento) que o usuário quer criar."""
     nome: str

@@ -104,6 +104,9 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
                             <button id="btn-gerar-partidas" class="btn-gerar-partidas">
                                 <i class="fa-solid fa-shuffle"></i> ${rotulosSortear[modo]}
                             </button>
+                            <button id="btn-partida-manual" class="btn-gerar-partidas">
+                                <i class="fa-solid fa-plus"></i> Adicionar partida manualmente
+                            </button>
                         `}
                         ${comPlayoffs ? `
                             <button id="btn-gerar-playoffs" class="btn-gerar-partidas">
@@ -115,6 +118,7 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
                         ` : ""}
                     </div>
                 </div>
+                <div id="form-partida-manual-wrap"></div>
                 <div id="partidas-wrap"></div>
             </div>
             </div>
@@ -144,6 +148,9 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
                 alert("Erro ao sortear as partidas. Tente novamente.");
             }
         });
+
+        const btnPartidaManual = document.getElementById("btn-partida-manual");
+        if (btnPartidaManual) btnPartidaManual.addEventListener("click", () => alternarFormPartidaManual(campeonatoId));
 
         if (comPlayoffs) {
             document.getElementById("btn-gerar-playoffs").addEventListener("click", async () => {
@@ -599,6 +606,7 @@ function linhaPartidaHtml(partida, permitirPenaltis) {
             <span class="prt-time prt-time--visitante">${partida.time_visitante}</span>
             ${seletorPenaltis}
             <button class="prt-btn-salvar">Salvar</button>
+            ${partida.finalizada || partida.fase === "playoffs" ? "" : `<button class="prt-btn-remover-partida" title="Remover partida">&times;</button>`}
         </div>
     `;
 }
@@ -727,6 +735,106 @@ function renderizarPartidas(wrap, campeonatoId, partidas) {
     }
 
     ativarBotoesSalvar(wrap, campeonatoId);
+}
+
+// --- Adicionar partida manualmente (alternativa ao sorteio) ---
+
+function opcoesDeTimes(times, indiceSelecionado) {
+    return times.map((time, i) =>
+        `<option value="${escaparHtml(time)}" ${i === indiceSelecionado ? "selected" : ""}>${escaparHtml(time)}</option>`
+    ).join("");
+}
+
+function alternarFormPartidaManual(campeonatoId) {
+    const wrap = document.getElementById("form-partida-manual-wrap");
+    if (!wrap) return;
+
+    // clicar de novo no botão recolhe o formulário
+    if (wrap.innerHTML.trim()) {
+        wrap.innerHTML = "";
+        return;
+    }
+
+    const modo = modoExibicao();
+    const config = campeonatoAtual.configuracao || {};
+    const ehNfl = modo === "nfl";
+
+    let campoContexto = "";
+    if (modo === "futebol_grupos") {
+        const numGrupos = Math.floor(campeonatoAtual.quantidade_times / 4);
+        const nomes = "ABCDEFGH".slice(0, numGrupos).split("");
+        campoContexto = `<select class="select-manual-grupo">${nomes.map(n => `<option value="${n}">Grupo ${n}</option>`).join("")}</select>`;
+    } else if (modo === "basquete_conferencias") {
+        const nomes = Object.keys(config.conferencias || {});
+        campoContexto = `<select class="select-manual-conferencia">${nomes.map(n => `<option value="${escaparHtml(n)}">Conferência ${escaparHtml(n)}</option>`).join("")}</select>`;
+    }
+
+    wrap.innerHTML = `
+        <div class="form-partida-manual">
+            ${campoContexto}
+            <select class="select-manual-casa"></select>
+            <span>x</span>
+            <select class="select-manual-visitante"></select>
+            <label class="label-manual-rodada">${ehNfl ? "Semana" : "Rodada"}
+                <input type="number" min="1" ${ehNfl ? 'max="18"' : ""} value="1" class="input-manual-rodada">
+            </label>
+            <button type="button" class="btn-gerar-partidas btn-confirmar-partida-manual">
+                <i class="fa-solid fa-plus"></i> Adicionar partida
+            </button>
+        </div>
+    `;
+
+    const form = wrap.querySelector(".form-partida-manual");
+    const selectConferencia = form.querySelector(".select-manual-conferencia");
+    const selectCasa = form.querySelector(".select-manual-casa");
+    const selectVisitante = form.querySelector(".select-manual-visitante");
+
+    // Com 2 conferências no basquete, só aparecem os times da conferência escolhida
+    const preencherTimes = () => {
+        const times = selectConferencia
+            ? (config.conferencias?.[selectConferencia.value] || [])
+            : (campeonatoAtual.times || []);
+        selectCasa.innerHTML = opcoesDeTimes(times, 0);
+        selectVisitante.innerHTML = opcoesDeTimes(times, Math.min(1, times.length - 1));
+    };
+    preencherTimes();
+    if (selectConferencia) selectConferencia.addEventListener("change", preencherTimes);
+
+    form.querySelector(".btn-confirmar-partida-manual").addEventListener("click", async () => {
+        const casa = selectCasa.value;
+        const visitante = selectVisitante.value;
+        const rodada = parseInt(form.querySelector(".input-manual-rodada").value, 10);
+        const grupo = form.querySelector(".select-manual-grupo")?.value || null;
+        const conferencia = selectConferencia?.value || null;
+
+        if (!casa || !visitante || casa === visitante) {
+            alert("Escolha dois times diferentes.");
+            return;
+        }
+        if (!rodada || rodada < 1) {
+            alert(`Informe ${ehNfl ? "a semana" : "a rodada"} (1 ou maior).`);
+            return;
+        }
+
+        try {
+            await chamarApiUfc(`/api/campeonatos/${campeonatoId}/partidas`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ time_casa: casa, time_visitante: visitante, rodada, grupo, conferencia })
+            }, "Erro ao adicionar a partida");
+
+            // leva a tela direto pra aba / semana onde a partida acabou de entrar
+            if (grupo) abaSelecionada = grupo;
+            if (conferencia) abaSelecionada = conferencia;
+            if (ehNfl) semanaNflSelecionada = rodada;
+
+            await carregarClassificacao(campeonatoId);
+            await carregarPartidas(campeonatoId);
+        } catch (erro) {
+            console.error(erro);
+            alert(erro.message);
+        }
+    });
 }
 
 function renderizarBlocoRodadas(partidas, rotuloFn) {
@@ -1128,6 +1236,22 @@ function ativarBotoesSalvar(wrap, campeonatoId) {
             } catch (erro) {
                 console.error(erro);
                 alert(erro.message || "Erro ao salvar o placar. Tente novamente.");
+            }
+        });
+    });
+
+    // Remover partida ainda sem resultado (marcada por engano)
+    wrap.querySelectorAll(".prt-btn-remover-partida").forEach(botao => {
+        botao.addEventListener("click", async (evento) => {
+            const linha = evento.target.closest(".prt-linha");
+            if (!confirm("Remover essa partida?")) return;
+            try {
+                await chamarApiUfc(`/api/partidas/${linha.dataset.partidaId}`, { method: "DELETE" }, "Erro ao remover a partida");
+                await carregarClassificacao(campeonatoId);
+                await carregarPartidas(campeonatoId);
+            } catch (erro) {
+                console.error(erro);
+                alert(erro.message);
             }
         });
     });

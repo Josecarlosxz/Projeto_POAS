@@ -1875,3 +1875,54 @@ a {
         grid-template-columns: 1fr;
     }
 }
+
+
+/* --- Adicionar partida manualmente --- */
+
+.form-partida-manual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px dashed #1a56ff;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.form-partida-manual select,
+.form-partida-manual input {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.label-manual-rodada {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.input-manual-rodada {
+    width: 70px;
+}
+
+.prt-btn-remover-partida {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.prt-btn-remover-partida:hover {
+    color: #dc2626;
+}

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Form
 from sqlmodel import Session
 
 from acesso_dados.database import get_session
-from dados.models import Usuario, ResultadoPartida, ResultadoLuta, LutaRequest, CardRequest
+from dados.models import Usuario, ResultadoPartida, ResultadoLuta, LutaRequest, CardRequest, PartidaManualRequest
 from negocio.auth_service import obter_usuario_logado
 from negocio.campeonato_service import (
     criar_campeonato as _criar_campeonato,
@@ -24,6 +24,8 @@ from negocio.partida_service import (
     listar_cards as _listar_cards,
     criar_card as _criar_card,
     remover_card as _remover_card,
+    criar_partida_manual as _criar_partida_manual,
+    remover_partida as _remover_partida,
 )
 
 router = APIRouter()
@@ -60,6 +62,23 @@ def gerar_partidas(campeonato_id: int, session: Session = Depends(get_session)):
 @router.get("/api/campeonatos/{campeonato_id}/partidas")
 def listar_partidas(campeonato_id: int, session: Session = Depends(get_session)):
     return _listar_partidas(session, campeonato_id)
+
+@router.post("/api/campeonatos/{campeonato_id}/partidas")
+def criar_partida_manual(
+    campeonato_id: int,
+    dados: PartidaManualRequest,
+    session: Session = Depends(get_session)
+):
+    """Adiciona uma partida escolhida à mão (alternativa ao sorteio automático)."""
+    return _criar_partida_manual(
+        session, campeonato_id, dados.time_casa, dados.time_visitante,
+        dados.rodada, dados.grupo, dados.conferencia,
+    )
+
+@router.delete("/api/partidas/{partida_id}")
+def remover_partida(partida_id: int, session: Session = Depends(get_session)):
+    """Remove uma partida marcada por engano (só se ainda não tiver resultado)."""
+    return _remover_partida(session, partida_id)
 
 @router.put("/api/partidas/{partida_id}/resultado")
 def atualizar_resultado(

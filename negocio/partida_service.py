@@ -465,6 +465,120 @@ def listar_partidas(session: Session, campeonato_id: int) -> List[dict]:
     return [_serializar_partida(p) for p in partidas]
 
 
+def criar_partida_manual(
+    session: Session,
+    campeonato_id: int,
+    time_casa: str,
+    time_visitante: str,
+    rodada: int = 1,
+    grupo: Optional[str] = None,
+    conferencia: Optional[str] = None,
+) -> dict:
+    """
+    Alternativa ao sorteio: o usuário escolhe quem joga contra quem e em qual rodada.
+    Não apaga nada do que já existe. Vale para a temporada regular / fase de grupos;
+    os playoffs continuam sendo gerados a partir da classificação.
+    """
+    campeonato = session.get(Campeonato, campeonato_id)
+    if not campeonato:
+        raise HTTPException(status_code=404, detail="Campeonato não encontrado")
+    if campeonato.esporte == "UFC":
+        raise HTTPException(status_code=400, detail="No UFC as lutas já são marcadas manualmente, dentro de cada card")
+
+    times = json.loads(campeonato.times)
+    configuracao = _obter_configuracao(campeonato)
+
+    nomes = {t.lower(): t for t in times}
+    casa = nomes.get((time_casa or "").strip().lower())
+    visitante = nomes.get((time_visitante or "").strip().lower())
+    if not casa or not visitante:
+        raise HTTPException(status_code=400, detail="Escolha times que participam do campeonato")
+    if casa == visitante:
+        raise HTTPException(status_code=400, detail="Escolha dois times diferentes")
+
+    ultima_rodada = nfl_service.SEMANAS_TEMPORADA if campeonato.esporte == "NFL" else None
+    if rodada < 1 or (ultima_rodada and rodada > ultima_rodada):
+        raise HTTPException(
+            status_code=400,
+            detail=f"A semana precisa estar entre 1 e {ultima_rodada}" if ultima_rodada else "A rodada precisa ser 1 ou maior"
+        )
+
+    existentes = session.exec(select(Partida).where(Partida.campeonato_id == campeonato_id)).all()
+    if any(p.fase == "playoffs" for p in existentes):
+        raise HTTPException(status_code=400, detail="Os playoffs já foram gerados; não dá mais para adicionar partidas da temporada")
+
+    fase = None
+    if campeonato.esporte == "Futebol" and configuracao.get("formato") == "grupos_playoffs":
+        fase = "grupos"
+        grupo = (grupo or "").strip().upper()
+        grupos_validos = NOMES_GRUPOS_PADRAO[: calcular_num_grupos(len(times))]
+        if grupo not in grupos_validos:
+            raise HTTPException(status_code=400, detail=f"Escolha um grupo válido ({', '.join(grupos_validos)})")
+
+        membros_por_grupo: Dict[str, set] = {}
+        for p in existentes:
+            membros_por_grupo.setdefault(p.grupo, set()).update({p.time_casa, p.time_visitante})
+        for time in (casa, visitante):
+            for nome_grupo, membros in membros_por_grupo.items():
+                if nome_grupo != grupo and time in membros:
+                    raise HTTPException(status_code=400, detail=f"{time} já está no Grupo {nome_grupo}")
+        if len(membros_por_grupo.get(grupo, set()) | {casa, visitante}) > NUM_TIMES_POR_GRUPO:
+            raise HTTPException(status_code=400, detail=f"O Grupo {grupo} já tem {NUM_TIMES_POR_GRUPO} times")
+        conferencia = None
+
+    elif campeonato.esporte == "Basquete":
+        conferencias = configuracao.get("conferencias", {})
+        if len(conferencias) == 1:
+            conferencia = next(iter(conferencias))
+        if conferencia not in conferencias:
+            raise HTTPException(status_code=400, detail="Escolha uma conferência válida")
+        if casa not in conferencias[conferencia] or visitante not in conferencias[conferencia]:
+            raise HTTPException(status_code=400, detail=f"Os dois times precisam ser da Conferência {conferencia}")
+        grupo = None
+
+    else:
+        grupo = None
+        conferencia = None
+
+    for p in existentes:
+        if p.rodada == rodada and {p.time_casa, p.time_visitante} & {casa, visitante}:
+            raise HTTPException(status_code=400, detail="Um dos times já tem jogo nessa rodada")
+        if p.time_casa == casa and p.time_visitante == visitante:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{casa} x {visitante} já foi marcado. Para o jogo de volta, inverta os mandantes"
+            )
+
+    nova_partida = Partida(
+        campeonato_id=campeonato_id, rodada=rodada, turno=1,
+        time_casa=casa, time_visitante=visitante,
+        fase=fase, grupo=grupo, conferencia=conferencia,
+    )
+    session.add(nova_partida)
+    session.commit()
+    session.refresh(nova_partida)
+    return _serializar_partida(nova_partida)
+
+
+def remover_partida(session: Session, partida_id: int) -> dict:
+    """Desfaz uma partida marcada por engano (só enquanto ainda não tem resultado e não é de playoffs)."""
+    partida = session.get(Partida, partida_id)
+    if not partida:
+        raise HTTPException(status_code=404, detail="Partida não encontrada")
+
+    campeonato = session.get(Campeonato, partida.campeonato_id)
+    if campeonato and campeonato.esporte == "UFC":
+        raise HTTPException(status_code=400, detail="No UFC a remoção é feita pelas lutas do card")
+    if partida.fase == "playoffs":
+        raise HTTPException(status_code=400, detail="Partidas de playoffs são geradas pela classificação e não podem ser removidas")
+    if partida.finalizada:
+        raise HTTPException(status_code=400, detail="Não é possível remover uma partida que já tem resultado")
+
+    session.delete(partida)
+    session.commit()
+    return {"removida": True}
+
+
 def atualizar_resultado(
     session: Session,
     partida_id: int,
