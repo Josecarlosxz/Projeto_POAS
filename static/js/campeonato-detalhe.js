@@ -3,6 +3,8 @@ let classificacaoCache = null;
 let partidasCache = [];
 let cardsCache = [];
 let semanaNflSelecionada = null;
+let corridasCache = [];
+let pontosF1 = { corrida: [], sprint: [] };
 let numerosConfrontoUfc = new Map(); // id da luta -> nº do confronto (1ª vez, 2ª vez...)
 let abaSelecionada = null;
 
@@ -36,11 +38,14 @@ function modoExibicao() {
     if (esporte === "NFL") {
         return "nfl";
     }
+    if (esporte === "Formula1") {
+        return "f1";
+    }
     return "generico";
 }
 
 function temAbas(modo) {
-    return modo === "futebol_grupos" || modo === "basquete_conferencias" || modo === "ufc_categorias" || modo === "nfl";
+    return modo === "futebol_grupos" || modo === "basquete_conferencias" || modo === "ufc_categorias" || modo === "nfl" || modo === "f1";
 }
 
 function temPlayoffs(modo) {
@@ -49,13 +54,19 @@ function temPlayoffs(modo) {
 
 function rotuloAba(nome) {
     if (campeonatoAtual.esporte === "Basquete") return `Conferência ${nome}`;
-    if (campeonatoAtual.esporte === "UFC" || campeonatoAtual.esporte === "NFL") return nome;
+    if (["UFC", "NFL", "Formula1"].includes(campeonatoAtual.esporte)) return nome;
     return `Grupo ${nome}`;
+}
+
+function nomesDasAbas(grupos) {
+    const nomes = Object.keys(grupos);
+    return campeonatoAtual?.esporte === "Formula1" ? nomes : nomes.sort();
 }
 
 function chaveGrupoDoModo(modo) {
     if (modo === "futebol_grupos") return "grupos";
     if (modo === "ufc_categorias") return "categorias";
+    if (modo === "f1") return "tabelas";
     return "conferencias";
 }
 
@@ -98,14 +109,11 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
 
             <div class="secao-partidas">
                 <div class="secao-titulo">
-                    <h2>Partidas</h2>
+                    <h2>${modo === "f1" ? "Grandes Prêmios" : "Partidas"}</h2>
                     <div class="acoes-partidas">
-                        ${modo === "ufc_categorias" ? "" : `
+                        ${modo === "ufc_categorias" || modo === "f1" ? "" : `
                             <button id="btn-gerar-partidas" class="btn-gerar-partidas">
                                 <i class="fa-solid fa-shuffle"></i> ${rotulosSortear[modo]}
-                            </button>
-                            <button id="btn-partida-manual" class="btn-gerar-partidas">
-                                <i class="fa-solid fa-plus"></i> Adicionar partida manualmente
                             </button>
                         `}
                         ${comPlayoffs ? `
@@ -118,7 +126,6 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
                         ` : ""}
                     </div>
                 </div>
-                <div id="form-partida-manual-wrap"></div>
                 <div id="partidas-wrap"></div>
             </div>
             </div>
@@ -148,9 +155,6 @@ async function carregarDetalheCampeonato(container, campeonatoId) {
                 alert("Erro ao sortear as partidas. Tente novamente.");
             }
         });
-
-        const btnPartidaManual = document.getElementById("btn-partida-manual");
-        if (btnPartidaManual) btnPartidaManual.addEventListener("click", () => alternarFormPartidaManual(campeonatoId));
 
         if (comPlayoffs) {
             document.getElementById("btn-gerar-playoffs").addEventListener("click", async () => {
@@ -224,7 +228,7 @@ async function carregarClassificacao(campeonatoId) {
         if (temAbas(modo)) {
             const chaveGrupo = chaveGrupoDoModo(modo);
             renderizarAbas(campeonatoId, classificacaoCache[chaveGrupo] || {});
-            const nomes = Object.keys(classificacaoCache[chaveGrupo] || {}).sort();
+            const nomes = nomesDasAbas(classificacaoCache[chaveGrupo] || {});
             if (!abaSelecionada || !nomes.includes(abaSelecionada)) {
                 abaSelecionada = nomes[0] || null;
             }
@@ -249,7 +253,7 @@ function renderizarAbas(campeonatoId, grupos) {
     const abasWrap = document.getElementById("abas-grupo");
     if (!abasWrap) return;
 
-    const nomes = Object.keys(grupos).sort();
+    const nomes = nomesDasAbas(grupos);
 
     abasWrap.innerHTML = nomes.map(nome => `
         <button type="button" class="aba-grupo-btn ${nome === abaSelecionada ? "aba-grupo-btn--ativa" : ""}" data-aba="${nome}">
@@ -265,7 +269,7 @@ function renderizarAbas(campeonatoId, grupos) {
             renderizarAbas(campeonatoId, classificacaoCache[chaveGrupo] || {});
             renderizarClassificacaoDaAba(document.getElementById("classificacao-wrap"), chaveGrupo);
             // No UFC os cards mostram lutas de todas as categorias; a aba só muda a tabela.
-            if (modo !== "ufc_categorias" && modo !== "nfl") {
+            if (modo !== "ufc_categorias" && modo !== "nfl" && modo !== "f1") {
                 renderizarPartidas(document.getElementById("partidas-wrap"), campeonatoId, partidasCache);
             }
         });
@@ -294,6 +298,10 @@ function renderizarClassificacaoDaAba(wrap, chaveGrupo) {
     }
     if (campeonatoAtual.esporte === "NFL") {
         renderizarClassificacaoNFL(wrap, tabela);
+        return;
+    }
+    if (campeonatoAtual.esporte === "Formula1") {
+        renderizarClassificacaoF1(wrap, tabela, abaSelecionada);
         return;
     }
     renderizarTabela(wrap, tabela);
@@ -360,6 +368,44 @@ function renderizarClassificacaoFutebol(wrap, classificacao) {
                     </tr>
                 </thead>
                 <tbody>${linhas}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+// F1: tabela de Pilotos ou de Construtores
+function renderizarClassificacaoF1(wrap, linhas, aba) {
+    if (!linhas || !linhas.length) {
+        wrap.innerHTML = "<p>Nenhum piloto cadastrado.</p>";
+        return;
+    }
+
+    const ehPilotos = aba === "Pilotos";
+    const corpo = linhas.map((linha, index) => `
+        <tr>
+            <td class="clf-td-pos">${index + 1}</td>
+            <td class="clf-td-nome">${escaparHtml(ehPilotos ? linha.piloto : linha.equipe)}</td>
+            <td class="clf-td-vaga">${escaparHtml(ehPilotos ? linha.equipe : linha.pilotos.join(" / "))}</td>
+            <td class="clf-td-pts">${linha.pontos}</td>
+            <td>${linha.vitorias}</td>
+            <td>${linha.podios}</td>
+        </tr>
+    `).join("");
+
+    wrap.innerHTML = `
+        <div class="clf-wrap">
+            <table class="clf-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th class="clf-th-esquerda">${ehPilotos ? "Piloto" : "Equipe"}</th>
+                        <th class="clf-th-esquerda">${ehPilotos ? "Equipe" : "Pilotos"}</th>
+                        <th>Pts</th>
+                        <th>V</th>
+                        <th>Pódios</th>
+                    </tr>
+                </thead>
+                <tbody>${corpo}</tbody>
             </table>
         </div>
     `;
@@ -576,6 +622,14 @@ async function carregarPartidas(campeonatoId) {
             cardsCache = await respostaCards.json();
         }
 
+        if (modoExibicao() === "f1") {
+            const respostaCorridas = await fetch(`/api/campeonatos/${campeonatoId}/corridas`);
+            if (!respostaCorridas.ok) throw new Error("Erro ao buscar os Grandes Prêmios");
+            const dadosCorridas = await respostaCorridas.json();
+            corridasCache = dadosCorridas.corridas;
+            pontosF1 = dadosCorridas.pontos;
+        }
+
         renderizarPartidas(wrap, campeonatoId, partidasCache);
 
     } catch (erro) {
@@ -606,7 +660,6 @@ function linhaPartidaHtml(partida, permitirPenaltis) {
             <span class="prt-time prt-time--visitante">${partida.time_visitante}</span>
             ${seletorPenaltis}
             <button class="prt-btn-salvar">Salvar</button>
-            ${partida.finalizada || partida.fase === "playoffs" ? "" : `<button class="prt-btn-remover-partida" title="Remover partida">&times;</button>`}
         </div>
     `;
 }
@@ -616,13 +669,18 @@ function renderizarPartidas(wrap, campeonatoId, partidas) {
 
     // UFC sempre renderiza (mesmo com 0 lutas sorteadas), porque o formulário
     // de luta de título precisa aparecer independente disso.
-    if (!partidas.length && modo !== "ufc_categorias") {
+    if (!partidas.length && modo !== "ufc_categorias" && modo !== "f1") {
         wrap.innerHTML = "<p>Nenhuma partida sorteada ainda.</p>";
         return;
     }
 
     if (modo === "ufc_categorias") {
         renderizarPartidasUFC(wrap, campeonatoId, partidas);
+        return;
+    }
+
+    if (modo === "f1") {
+        renderizarPartidasF1(wrap, campeonatoId);
         return;
     }
 
@@ -737,106 +795,6 @@ function renderizarPartidas(wrap, campeonatoId, partidas) {
     ativarBotoesSalvar(wrap, campeonatoId);
 }
 
-// --- Adicionar partida manualmente (alternativa ao sorteio) ---
-
-function opcoesDeTimes(times, indiceSelecionado) {
-    return times.map((time, i) =>
-        `<option value="${escaparHtml(time)}" ${i === indiceSelecionado ? "selected" : ""}>${escaparHtml(time)}</option>`
-    ).join("");
-}
-
-function alternarFormPartidaManual(campeonatoId) {
-    const wrap = document.getElementById("form-partida-manual-wrap");
-    if (!wrap) return;
-
-    // clicar de novo no botão recolhe o formulário
-    if (wrap.innerHTML.trim()) {
-        wrap.innerHTML = "";
-        return;
-    }
-
-    const modo = modoExibicao();
-    const config = campeonatoAtual.configuracao || {};
-    const ehNfl = modo === "nfl";
-
-    let campoContexto = "";
-    if (modo === "futebol_grupos") {
-        const numGrupos = Math.floor(campeonatoAtual.quantidade_times / 4);
-        const nomes = "ABCDEFGH".slice(0, numGrupos).split("");
-        campoContexto = `<select class="select-manual-grupo">${nomes.map(n => `<option value="${n}">Grupo ${n}</option>`).join("")}</select>`;
-    } else if (modo === "basquete_conferencias") {
-        const nomes = Object.keys(config.conferencias || {});
-        campoContexto = `<select class="select-manual-conferencia">${nomes.map(n => `<option value="${escaparHtml(n)}">Conferência ${escaparHtml(n)}</option>`).join("")}</select>`;
-    }
-
-    wrap.innerHTML = `
-        <div class="form-partida-manual">
-            ${campoContexto}
-            <select class="select-manual-casa"></select>
-            <span>x</span>
-            <select class="select-manual-visitante"></select>
-            <label class="label-manual-rodada">${ehNfl ? "Semana" : "Rodada"}
-                <input type="number" min="1" ${ehNfl ? 'max="18"' : ""} value="1" class="input-manual-rodada">
-            </label>
-            <button type="button" class="btn-gerar-partidas btn-confirmar-partida-manual">
-                <i class="fa-solid fa-plus"></i> Adicionar partida
-            </button>
-        </div>
-    `;
-
-    const form = wrap.querySelector(".form-partida-manual");
-    const selectConferencia = form.querySelector(".select-manual-conferencia");
-    const selectCasa = form.querySelector(".select-manual-casa");
-    const selectVisitante = form.querySelector(".select-manual-visitante");
-
-    // Com 2 conferências no basquete, só aparecem os times da conferência escolhida
-    const preencherTimes = () => {
-        const times = selectConferencia
-            ? (config.conferencias?.[selectConferencia.value] || [])
-            : (campeonatoAtual.times || []);
-        selectCasa.innerHTML = opcoesDeTimes(times, 0);
-        selectVisitante.innerHTML = opcoesDeTimes(times, Math.min(1, times.length - 1));
-    };
-    preencherTimes();
-    if (selectConferencia) selectConferencia.addEventListener("change", preencherTimes);
-
-    form.querySelector(".btn-confirmar-partida-manual").addEventListener("click", async () => {
-        const casa = selectCasa.value;
-        const visitante = selectVisitante.value;
-        const rodada = parseInt(form.querySelector(".input-manual-rodada").value, 10);
-        const grupo = form.querySelector(".select-manual-grupo")?.value || null;
-        const conferencia = selectConferencia?.value || null;
-
-        if (!casa || !visitante || casa === visitante) {
-            alert("Escolha dois times diferentes.");
-            return;
-        }
-        if (!rodada || rodada < 1) {
-            alert(`Informe ${ehNfl ? "a semana" : "a rodada"} (1 ou maior).`);
-            return;
-        }
-
-        try {
-            await chamarApiUfc(`/api/campeonatos/${campeonatoId}/partidas`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ time_casa: casa, time_visitante: visitante, rodada, grupo, conferencia })
-            }, "Erro ao adicionar a partida");
-
-            // leva a tela direto pra aba / semana onde a partida acabou de entrar
-            if (grupo) abaSelecionada = grupo;
-            if (conferencia) abaSelecionada = conferencia;
-            if (ehNfl) semanaNflSelecionada = rodada;
-
-            await carregarClassificacao(campeonatoId);
-            await carregarPartidas(campeonatoId);
-        } catch (erro) {
-            console.error(erro);
-            alert(erro.message);
-        }
-    });
-}
-
 function renderizarBlocoRodadas(partidas, rotuloFn) {
     if (!partidas.length) return "";
 
@@ -881,6 +839,170 @@ function renderizarBlocoPorEtapa(partidas, permitirPenaltis) {
     }).join("");
 }
 
+// --- Fórmula 1: Grandes Prêmios criados pelo usuário; o resultado é lançado por posição de chegada ---
+
+function pilotosDaF1() {
+    const equipes = campeonatoAtual.configuracao?.equipes || {};
+    return Object.entries(equipes).flatMap(([equipe, pilotos]) => pilotos.map(nome => ({ nome, equipe })));
+}
+
+function sessaoF1Html(corrida, sessao, abrir) {
+    const rotulo = sessao === "sprint" ? "Sprint" : "Corrida";
+    const resultado = corrida.sessoes?.[sessao] || [];
+    const ordem = resultado.map(r => r.piloto);
+    const pilotos = pilotosDaF1();
+    const tabelaPontos = pontosF1[sessao] || [];
+
+    const slots = pilotos.map((_, i) => {
+        const opcoes = `<option value="">—</option>` + pilotos.map(p => `
+            <option value="${escaparHtml(p.nome)}" ${ordem[i] === p.nome ? "selected" : ""}>
+                ${escaparHtml(p.nome)} (${escaparHtml(p.equipe)})
+            </option>
+        `).join("");
+
+        return `
+            <div class="f1-slot">
+                <span class="f1-slot-pos">P${i + 1}</span>
+                <select class="select-slot-f1">${opcoes}</select>
+                <span class="f1-slot-pts">${tabelaPontos[i] ?? 0} pts</span>
+            </div>
+        `;
+    }).join("");
+
+    const resumo = resultado.length ? `vencedor: ${escaparHtml(resultado[0].piloto)}` : "sem resultado";
+
+    return `
+        <details class="f1-sessao" data-sessao="${sessao}" ${abrir && !resultado.length ? "open" : ""}>
+            <summary><strong>${rotulo}</strong> — ${resumo}</summary>
+            <div class="f1-slots">${slots}</div>
+            <p class="f1-aviso">Quem não aparece na lista (abandonou ou foi desclassificado) fica sem pontos.</p>
+            <button type="button" class="btn-gerar-partidas btn-salvar-sessao-f1">Salvar resultado</button>
+        </details>
+    `;
+}
+
+// Um piloto só pode ocupar uma posição: desabilita nos outros campos quem já foi escolhido
+function sincronizarSlotsF1(sessaoEl) {
+    const selects = [...sessaoEl.querySelectorAll(".select-slot-f1")];
+    const usados = new Set(selects.map(select => select.value).filter(Boolean));
+    selects.forEach(select => {
+        [...select.options].forEach(opcao => {
+            opcao.disabled = opcao.value !== "" && usados.has(opcao.value) && opcao.value !== select.value;
+        });
+    });
+}
+
+function renderizarPartidasF1(wrap, campeonatoId) {
+    const corridas = [...corridasCache].sort((a, b) => b.id - a.id);
+
+    const blocos = corridas.map((corrida, indice) => `
+        <div class="card-ufc" data-corrida-id="${corrida.id}">
+            <div class="card-ufc-topo">
+                <h3>${escaparHtml(corrida.nome)} ${corrida.sprint ? `<span class="badge-sprint">Sprint</span>` : ""}</h3>
+                <button type="button" class="btn-remover-card btn-remover-gp" title="Remover Grande Prêmio">&times;</button>
+            </div>
+            ${sessaoF1Html(corrida, "corrida", indice === 0)}
+            ${corrida.sprint ? sessaoF1Html(corrida, "sprint", indice === 0) : ""}
+        </div>
+    `).join("");
+
+    wrap.innerHTML = `
+        <div class="prt-lista">
+            <div class="form-criar-card">
+                <input type="text" class="input-nome-gp" maxlength="80" placeholder="Nome do Grande Prêmio (ex: GP da Austrália)">
+                <label class="check-sprint">
+                    <input type="checkbox" class="check-sprint-gp"> Fim de semana de Sprint
+                </label>
+                <button type="button" class="btn-gerar-partidas btn-criar-gp">
+                    <i class="fa-solid fa-plus"></i> Criar Grande Prêmio
+                </button>
+            </div>
+            ${blocos || "<p>Nenhum Grande Prêmio criado ainda. Crie o primeiro para lançar os resultados.</p>"}
+        </div>
+    `;
+
+    // Criar Grande Prêmio
+    const inputNome = wrap.querySelector(".input-nome-gp");
+    const criarGp = async () => {
+        const nome = inputNome.value.trim();
+        if (!nome) {
+            alert("Dê um nome ao Grande Prêmio.");
+            return;
+        }
+        try {
+            await chamarApi(`/api/campeonatos/${campeonatoId}/corridas`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nome, sprint: wrap.querySelector(".check-sprint-gp").checked })
+            }, "Erro ao criar o Grande Prêmio");
+            await carregarPartidas(campeonatoId);
+        } catch (erro) {
+            console.error(erro);
+            alert(erro.message);
+        }
+    };
+    wrap.querySelector(".btn-criar-gp").addEventListener("click", criarGp);
+    inputNome.addEventListener("keydown", (evento) => {
+        if (evento.key === "Enter") {
+            evento.preventDefault();
+            criarGp();
+        }
+    });
+
+    wrap.querySelectorAll(".card-ufc[data-corrida-id]").forEach(blocoGp => {
+        const corridaId = blocoGp.dataset.corridaId;
+
+        // Remover Grande Prêmio
+        blocoGp.querySelector(".btn-remover-gp").addEventListener("click", async () => {
+            if (!confirm("Remover esse Grande Prêmio e os resultados dele?")) return;
+            try {
+                await chamarApi(`/api/corridas/${corridaId}`, { method: "DELETE" }, "Erro ao remover o Grande Prêmio");
+                await carregarClassificacao(campeonatoId);
+                await carregarPartidas(campeonatoId);
+            } catch (erro) {
+                console.error(erro);
+                alert(erro.message);
+            }
+        });
+
+        // Resultado de cada sessão (corrida / sprint)
+        blocoGp.querySelectorAll(".f1-sessao").forEach(sessaoEl => {
+            sincronizarSlotsF1(sessaoEl);
+            sessaoEl.querySelectorAll(".select-slot-f1").forEach(select => {
+                select.addEventListener("change", () => sincronizarSlotsF1(sessaoEl));
+            });
+
+            sessaoEl.querySelector(".btn-salvar-sessao-f1").addEventListener("click", async () => {
+                const escolhidos = [...sessaoEl.querySelectorAll(".select-slot-f1")].map(select => select.value);
+                const ultimoPreenchido = escolhidos.reduce((ultimo, valor, i) => (valor ? i : ultimo), -1);
+                const classificacao = escolhidos.slice(0, ultimoPreenchido + 1);
+
+                if (classificacao.length === 0) {
+                    alert("Escolha ao menos o vencedor.");
+                    return;
+                }
+                if (classificacao.some(piloto => !piloto)) {
+                    alert("Preencha as posições em ordem, sem pular nenhuma. Quem abandonou fica no fim, sem posição.");
+                    return;
+                }
+
+                try {
+                    await chamarApi(`/api/corridas/${corridaId}/resultado`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sessao: sessaoEl.dataset.sessao, classificacao })
+                    }, "Erro ao salvar o resultado");
+                    await carregarClassificacao(campeonatoId);
+                    await carregarPartidas(campeonatoId);
+                } catch (erro) {
+                    console.error(erro);
+                    alert(erro.message);
+                }
+            });
+        });
+    });
+}
+
 // --- UFC: cards (eventos) criados pelo usuário; as lutas são adicionadas dentro de cada card ---
 
 function escaparHtml(texto) {
@@ -889,7 +1011,7 @@ function escaparHtml(texto) {
     ));
 }
 
-async function chamarApiUfc(url, opcoes, mensagemPadrao) {
+async function chamarApi(url, opcoes, mensagemPadrao) {
     const resposta = await fetch(url, opcoes);
     if (!resposta.ok) {
         const erro = await resposta.json().catch(() => null);
@@ -953,12 +1075,16 @@ function cardUfcHtml(card, lutas) {
     return `
         <div class="card-ufc" data-card-id="${card.id}">
             <div class="card-ufc-topo">
-                <h3>${escaparHtml(card.nome)}</h3>
+                <h3>
+                    ${escaparHtml(card.nome)}
+                    ${card.fechado ? `<span class="badge-card-fechado"><i class="fa-solid fa-lock"></i></span>` : ""}
+                </h3>
                 <button type="button" class="btn-remover-card" title="Remover card">&times;</button>
             </div>
 
             ${lutas.map(linhaLutaHtml).join("") || `<p class="card-ufc-vazio">Nenhuma luta nesse card ainda.</p>`}
 
+            ${card.fechado ? `<p class="card-ufc-vazio">Card Completo;</p>` : `
             <div class="form-luta-titulo form-adicionar-luta">
                 <select class="select-luta-categoria">${opcoesCategoria}</select>
                 <select class="select-luta-lutador-1"></select>
@@ -971,7 +1097,10 @@ function cardUfcHtml(card, lutas) {
                 <button type="button" class="btn-gerar-partidas btn-adicionar-luta">
                     <i class="fa-solid fa-plus"></i> Adicionar luta
                 </button>
-            </div>
+                <button type="button" class="btn-fechar-card">
+                    <i class="fa-solid fa-lock"></i> Fechar card
+                </button>
+            </div>`}
         </div>
     `;
 }
@@ -1031,7 +1160,7 @@ function renderizarPartidasUFC(wrap, campeonatoId, partidas) {
             return;
         }
         try {
-            await chamarApiUfc(`/api/campeonatos/${campeonatoId}/cards`, {
+            await chamarApi(`/api/campeonatos/${campeonatoId}/cards`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ nome })
@@ -1057,7 +1186,7 @@ function renderizarPartidasUFC(wrap, campeonatoId, partidas) {
         blocoCard.querySelector(".btn-remover-card").addEventListener("click", async () => {
             if (!confirm("Remover esse card e as lutas dele que ainda não têm resultado?")) return;
             try {
-                await chamarApiUfc(`/api/cards/${cardId}`, { method: "DELETE" }, "Erro ao remover o card");
+                await chamarApi(`/api/cards/${cardId}`, { method: "DELETE" }, "Erro ao remover o card");
                 await carregarPartidas(campeonatoId);
             } catch (erro) {
                 console.error(erro);
@@ -1067,8 +1196,22 @@ function renderizarPartidasUFC(wrap, campeonatoId, partidas) {
 
         // Adicionar luta ao card
         const form = blocoCard.querySelector(".form-adicionar-luta");
+        if (!form) return;  // card fechado: não tem formulário de nova luta
+
         preencherLutadoresDoForm(form);
         form.querySelector(".select-luta-categoria").addEventListener("change", () => preencherLutadoresDoForm(form));
+
+        // Fechar card: depois disso não dá mais pra adicionar lutas
+        form.querySelector(".btn-fechar-card").addEventListener("click", async () => {
+            if (!confirm("Fechar esse card? Depois de fechado não será possível adicionar novas lutas.")) return;
+            try {
+                await chamarApi(`/api/cards/${cardId}/fechar`, { method: "POST" }, "Erro ao fechar o card");
+                await carregarPartidas(campeonatoId);
+            } catch (erro) {
+                console.error(erro);
+                alert(erro.message);
+            }
+        });
 
         form.querySelector(".btn-adicionar-luta").addEventListener("click", async () => {
             const categoria = form.querySelector(".select-luta-categoria").value;
@@ -1082,7 +1225,7 @@ function renderizarPartidasUFC(wrap, campeonatoId, partidas) {
             }
 
             try {
-                await chamarApiUfc(`/api/cards/${cardId}/lutas`, {
+                await chamarApi(`/api/cards/${cardId}/lutas`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ categoria, lutador_casa: lutador1, lutador_visitante: lutador2, titulo })
@@ -1101,7 +1244,7 @@ function renderizarPartidasUFC(wrap, campeonatoId, partidas) {
             const linha = evento.target.closest(".prt-linha");
             if (!confirm("Remover essa luta?")) return;
             try {
-                await chamarApiUfc(`/api/lutas/${linha.dataset.partidaId}`, { method: "DELETE" }, "Erro ao remover a luta");
+                await chamarApi(`/api/lutas/${linha.dataset.partidaId}`, { method: "DELETE" }, "Erro ao remover a luta");
                 await carregarPartidas(campeonatoId);
             } catch (erro) {
                 console.error(erro);
@@ -1236,22 +1379,6 @@ function ativarBotoesSalvar(wrap, campeonatoId) {
             } catch (erro) {
                 console.error(erro);
                 alert(erro.message || "Erro ao salvar o placar. Tente novamente.");
-            }
-        });
-    });
-
-    // Remover partida ainda sem resultado (marcada por engano)
-    wrap.querySelectorAll(".prt-btn-remover-partida").forEach(botao => {
-        botao.addEventListener("click", async (evento) => {
-            const linha = evento.target.closest(".prt-linha");
-            if (!confirm("Remover essa partida?")) return;
-            try {
-                await chamarApiUfc(`/api/partidas/${linha.dataset.partidaId}`, { method: "DELETE" }, "Erro ao remover a partida");
-                await carregarClassificacao(campeonatoId);
-                await carregarPartidas(campeonatoId);
-            } catch (erro) {
-                console.error(erro);
-                alert(erro.message);
             }
         });
     });
